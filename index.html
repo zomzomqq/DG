@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tactical Mound Defense - 엘리트 타워 디펜스</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Top Navigation / HUD Bar -->
+        <header id="hud-bar" class="glass-panel">
+            <div class="hud-group">
+                <div class="hud-item">
+                    <span class="hud-icon">💰</span>
+                    <div class="hud-info">
+                        <span class="hud-label">GOLD</span>
+                        <span id="gold-val" class="hud-value highlight-gold">500</span>
+                        <span id="income-val" class="hud-sub">(+5/s)</span>
+                    </div>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-icon">🏰</span>
+                    <div class="hud-info">
+                        <span class="hud-label">BASE HP</span>
+                        <div class="hp-bar-container">
+                            <div id="base-hp-bar" class="hp-bar-fill"></div>
+                            <span id="base-hp-val" class="hp-text">100 / 100</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hud-title">
+                <h1>TACTICAL <span class="neon-text">MOUND</span> DEFENSE</h1>
+            </div>
+
+            <div class="hud-group">
+                <div class="hud-item">
+                    <span class="hud-icon">⚔️</span>
+                    <div class="hud-info">
+                        <span class="hud-label">WAVE</span>
+                        <span id="wave-val" class="hud-value">1</span>
+                    </div>
+                </div>
+                <div class="hud-controls">
+                    <button id="btn-speed" class="btn btn-secondary">⚡ 1x</button>
+                    <button id="btn-sound" class="btn btn-secondary">🔊 ON</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Game Area -->
+        <main id="main-area">
+            <!-- Left Control & Build Sidebar -->
+            <aside id="left-sidebar" class="glass-panel">
+                <section class="panel-section">
+                    <h3>🛠️ 둔덕 경로 설계</h3>
+                    <div class="mound-build-box">
+                        <button id="btn-build-mound" class="btn btn-action btn-mound">
+                            <div class="btn-content">
+                                <span class="btn-title">⛰️ 둔덕 신규 건설</span>
+                                <span class="btn-cost">💰 <span id="mound-cost">150</span> Gold</span>
+                            </div>
+                        </button>
+                        <p class="mound-hint">둔덕을 배치하여 적의 이동 경로를 우회시키세요! (경로 완막 불가)</p>
+                    </div>
+                </section>
+
+                <section class="panel-section">
+                    <h3>🏗️ 타워 및 시설 건설</h3>
+                    <p class="section-hint">※ 솟아오른 둔덕 위에만 설치 가능</p>
+                    <div id="tower-cards" class="tower-cards-grid">
+                        <div class="tower-card" data-tower-type="gatling">
+                            <div class="card-icon gatling-icon">🔫</div>
+                            <div class="card-details">
+                                <div class="card-name">가틀링 타워</div>
+                                <div class="card-desc">고속 단일 연사 사격</div>
+                                <div class="card-cost">💰 100 G</div>
+                            </div>
+                        </div>
+                        <div class="tower-card" data-tower-type="cannon">
+                            <div class="card-icon cannon-icon">💣</div>
+                            <div class="card-details">
+                                <div class="card-name">캐논 타워</div>
+                                <div class="card-desc">범위 폭발 스플래시</div>
+                                <div class="card-cost">💰 175 G</div>
+                            </div>
+                        </div>
+                        <div class="tower-card" data-tower-type="frost">
+                            <div class="card-icon frost-icon">❄️</div>
+                            <div class="card-details">
+                                <div class="card-name">프로스트 타워</div>
+                                <div class="card-desc">광역 이동속도 둔화</div>
+                                <div class="card-cost">💰 150 G</div>
+                            </div>
+                        </div>
+                        <div class="tower-card utility-card" data-tower-type="generator">
+                            <div class="card-icon generator-icon">⚡</div>
+                            <div class="card-details">
+                                <div class="card-name">골드 발전기</div>
+                                <div class="card-desc">초당 +3 골드 추가 생산</div>
+                                <div class="card-cost">💰 200 G</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Active Base Skills -->
+                <section class="panel-section">
+                    <h3>🚀 메인 타워 지원</h3>
+                    <button id="btn-orbital-strike" class="btn btn-danger btn-skill">
+                        <div class="skill-info">
+                            <span class="skill-name">🛰️ Orbital Strike</span>
+                            <span class="skill-desc">지정 구역 초고화력 궤도 폭격</span>
+                        </div>
+                        <span id="orbital-cooldown" class="skill-cd">READY</span>
+                    </button>
+                </section>
+            </aside>
+
+            <!-- Center Canvas Container -->
+            <section id="canvas-container">
+                <canvas id="game-canvas"></canvas>
+
+                <!-- Wave Start / Wave Preview Overlay -->
+                <div id="wave-preview-overlay" class="glass-overlay">
+                    <div class="overlay-header">
+                        <h2>NEXT WAVE PREVIEW</h2>
+                        <span id="preview-wave-num" class="wave-tag">WAVE 1</span>
+                    </div>
+                    <div id="preview-enemy-list" class="enemy-preview-list">
+                        <!-- Dynamic Populated -->
+                    </div>
+                    <div class="preview-synergy-tip">
+                        💡 <strong>전술 팁:</strong> <span id="preview-tip-text">프로스트로 적을 모은 후 캐논 스플래시로 일살하세요!</span>
+                    </div>
+                    <button id="btn-start-wave" class="btn btn-primary btn-large glow-pulse">⚔️ WAVE START</button>
+                </div>
+
+                <!-- Selected Tower Control Panel Overlay -->
+                <div id="selected-panel" class="glass-overlay-panel hidden">
+                    <div class="panel-header">
+                        <div class="t-title-box">
+                            <span id="sel-tower-icon" class="t-icon">🔫</span>
+                            <div>
+                                <h3 id="sel-tower-name">가틀링 타워</h3>
+                                <span id="sel-tower-lvl" class="lvl-badge">Lv. 1</span>
+                            </div>
+                        </div>
+                        <button id="btn-close-panel" class="btn-close">✕</button>
+                    </div>
+
+                    <div class="panel-body">
+                        <!-- Stats Grid -->
+                        <div class="stat-grid">
+                            <div class="stat-item"><span class="s-label">데미지:</span> <span id="sel-dmg" class="s-val">15</span></div>
+                            <div class="stat-item"><span class="s-label">공속:</span> <span id="sel-spd" class="s-val">6.0/s</span></div>
+                            <div class="stat-item"><span class="s-label">사거리:</span> <span id="sel-rng" class="s-val">150</span></div>
+                            <div class="stat-item"><span class="s-label">타겟팅:</span> 
+                                <select id="sel-target-strategy" class="select-style">
+                                    <option value="First">First (최근접)</option>
+                                    <option value="Last">Last (최후방)</option>
+                                    <option value="Strongest">Strongest (최고HP)</option>
+                                    <option value="Weakest">Weakest (최저HP)</option>
+                                    <option value="Fastest">Fastest (최고속도)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Heat & Overclock Bar (Attack Towers only) -->
+                        <div id="overclock-section" class="overclock-box">
+                            <div class="heat-header">
+                                <span>🔥 Heat Gauge</span>
+                                <span id="heat-status-text">NORMAL</span>
+                            </div>
+                            <div class="heat-bar-track">
+                                <div id="heat-bar-fill" class="heat-bar-fill"></div>
+                            </div>
+                            <button id="btn-overclock" class="btn btn-warning btn-sm">⚡ OVERCLOCK (+60% DPS)</button>
+                        </div>
+
+                        <!-- Branch Upgrades Section -->
+                        <div id="upgrade-section" class="upgrade-box">
+                            <h4>전술 업그레이드</h4>
+                            <!-- Normal Upgrade (Lv1 -> Lv2) -->
+                            <button id="btn-upgrade-normal" class="btn btn-success btn-block">
+                                ⬆️ 레벨 2 강화 (💰 <span id="normal-upgrade-cost">80</span> Gold)
+                            </button>
+
+                            <!-- Branch Upgrades (Lv2 -> Lv3 Specialization) -->
+                            <div id="branch-upgrade-container" class="branch-container hidden">
+                                <div class="branch-card" id="branch-opt-1">
+                                    <h5 id="branch-1-title">Minigun</h5>
+                                    <p id="branch-1-desc">초고속 지속사격, 단일 보스/탱커 특화</p>
+                                    <button id="btn-branch-1" class="btn btn-accent btn-sm">선택 (💰 <span id="branch-1-cost">200</span>G)</button>
+                                </div>
+                                <div class="branch-card" id="branch-opt-2">
+                                    <h5 id="branch-2-title">Railgun</h5>
+                                    <p id="branch-2-desc">직선 관통 빔, 일직선 다수 유닛 섬멸</p>
+                                    <button id="btn-branch-2" class="btn btn-accent btn-sm">선택 (💰 <span id="branch-2-cost">200</span>G)</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-footer">
+                        <button id="btn-sell-tower" class="btn btn-danger btn-sm">💸 건물 판매 (💰 +<span id="sell-gold-val">50</span>G)</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="game-over-modal" class="modal-overlay hidden">
+        <div class="modal-content glass-panel">
+            <h2 id="modal-title">GAME OVER</h2>
+            <p id="modal-desc">메인 타워가 파괴되었습니다.</p>
+            <div class="modal-stats">
+                <div>최종 웨이브: <span id="final-wave" class="neon-text">0</span></div>
+                <div>처치한 적: <span id="final-kills" class="neon-text">0</span></div>
+            </div>
+            <button id="btn-restart" class="btn btn-primary btn-large">🔄 다시 도전하기</button>
+        </div>
+    </div>
+
+    <!-- Main Module Script -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
