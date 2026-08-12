@@ -25,10 +25,9 @@ export class Enemy {
         this.regenRate = spec.regenRate || 0;
         this.auraRange = spec.auraRange || 0;
 
-        // [P3 수정] 피격 후 일정 시간(3초) 미피격 시에만 자연 회복
         this.timeSinceLastHit = 999;
+        this.auraTimer = 0; // [P2 2차 수정] Engineer 쉴드 오라 쿨다운 타이머 (2.5초 간격)
 
-        // Path Movement
         this.path = path || [];
         this.pathIndex = 0;
 
@@ -73,14 +72,14 @@ export class Enemy {
     }
 
     takeDamage(amount, damageType = 'normal') {
-        this.timeSinceLastHit = 0; // Reset last hit timer
+        this.timeSinceLastHit = 0;
         let finalDamage = amount;
 
-        // [P2 수정] Engineer 쉴드 버프(statusSystem Shield) 및 본체 shieldHp 통합 반영
+        // [P2 2차 수정] setEffectValue를 통해 쉴드 잔량 직접 감소
         const statusShield = statusSystem.getEffectValue(this, 'Shield');
         if (statusShield > 0) {
             if (statusShield >= finalDamage) {
-                statusSystem.applyEffect(this, 'Shield', 1.0, statusShield - finalDamage);
+                statusSystem.setEffectValue(this, 'Shield', statusShield - finalDamage);
                 return;
             } else {
                 finalDamage -= statusShield;
@@ -110,16 +109,20 @@ export class Enemy {
 
         this.timeSinceLastHit += dt;
 
-        // [P3 수정] Regenerator Trait: 피격되지 않은 상태로 3초 이상 경과 시 회복
+        // Regenerator Trait: 피격 후 3초 경과 시 회복
         if (this.regenRate > 0 && this.hp < this.maxHp && this.timeSinceLastHit >= 3.0) {
             this.hp = Math.min(this.maxHp, this.hp + this.regenRate * dt);
         }
 
-        // Engineer Trait: Aura Buff to surrounding allies
+        // [P2 2차 수정] Engineer Trait: 2.5초 간격으로 주변 아군에 50 쉴드 부여 (무한 재충전 방지)
         if (this.auraRange > 0 && gameEngine && gameEngine.enemies) {
-            for (const ally of gameEngine.enemies) {
-                if (ally !== this && ally.active && Math.hypot(ally.x - this.x, ally.y - this.y) <= this.auraRange) {
-                    statusSystem.applyEffect(ally, 'Shield', 1.0, 50);
+            this.auraTimer -= dt;
+            if (this.auraTimer <= 0) {
+                this.auraTimer = 2.5; // 2.5초 쿨다운
+                for (const ally of gameEngine.enemies) {
+                    if (ally !== this && ally.active && Math.hypot(ally.x - this.x, ally.y - this.y) <= this.auraRange) {
+                        statusSystem.applyEffect(ally, 'Shield', 3.0, 50);
+                    }
                 }
             }
         }

@@ -17,7 +17,8 @@ export class StatusEffectSystem {
         const existing = targetEffects.find(e => e.type === effectType);
         if (existing) {
             existing.duration = Math.max(existing.duration, duration);
-            existing.value = value; // [수정] 직접 수치 갱신
+            // [P2 2차 수정] 강한 효과 유지 정책으로 복원 (Cannon Cryo Explosion 등이 상위 디버프를 덮어쓰지 않음)
+            existing.value = Math.max(existing.value, value);
         } else {
             targetEffects.push({
                 type: effectType,
@@ -28,6 +29,7 @@ export class StatusEffectSystem {
         }
     }
 
+    // 잔량을 직접 명시적으로 갱신해야 하는 경우 (예: 쉴드 데미지 흡수 차감)
     setEffectValue(target, effectType, value) {
         if (!target || !target.id) return;
         const targetEffects = this.activeEffects.get(target.id);

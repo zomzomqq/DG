@@ -14,21 +14,22 @@ import { GatlingTower } from '../entities/towers/GatlingTower.js';
 import { CannonTower } from '../entities/towers/CannonTower.js';
 import { FrostTower } from '../entities/towers/FrostTower.js';
 import { WaveManager } from '../entities/WaveManager.js';
-// [P2/P3 수정] Splitter 사망 시 분열 생성을 위한 Enemy 클래스 명시적 import
 import { Enemy } from '../entities/enemies/Enemy.js';
 
 export class Game {
     constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
+        this.canvas = typeof document !== 'undefined' ? document.getElementById(canvasId) : null;
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
 
         // Setup Resolution
         this.cols = CONFIG.GRID_COLS;
         this.rows = CONFIG.GRID_ROWS;
         this.cellSize = CONFIG.CELL_SIZE;
 
-        this.canvas.width = this.cols * this.cellSize;
-        this.canvas.height = this.rows * this.cellSize;
+        if (this.canvas) {
+            this.canvas.width = this.cols * this.cellSize;
+            this.canvas.height = this.rows * this.cellSize;
+        }
 
         // Core Game Subsystems
         this.grid = new Grid(this.cols, this.rows, this.cellSize);
@@ -55,12 +56,14 @@ export class Game {
 
         // Mouse & Selection UI State
         this.hoverCell = null;
-        this.buildMode = null; // null, 'mound', 'gatling', 'cannon', 'frost', 'generator', 'orbital'
+        this.buildMode = null;
         this.selectedTower = null;
 
         this.lastTime = 0;
         this.initMoundsFromGrid();
-        this.bindEvents();
+        if (typeof window !== 'undefined') {
+            this.bindEvents();
+        }
     }
 
     initMoundsFromGrid() {
@@ -75,7 +78,6 @@ export class Game {
     }
 
     bindEvents() {
-        // [P2 수정] 유저 첫 클릭 상호작용 시 Web Audio API AudioContext 초기화 보장
         const initAudio = () => {
             soundManager.init();
             window.removeEventListener('pointerdown', initAudio);
@@ -84,27 +86,34 @@ export class Game {
         window.addEventListener('pointerdown', initAudio);
         window.addEventListener('click', initAudio);
 
-        this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-        this.canvas.addEventListener('click', (e) => this.onClick(e));
+        if (this.canvas) {
+            this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+            this.canvas.addEventListener('click', (e) => this.onClick(e));
+        }
 
-        // Speed Toggle
-        document.getElementById('btn-speed').addEventListener('click', () => {
-            this.gameSpeed = this.gameSpeed === 1 ? 2 : (this.gameSpeed === 2 ? 3 : 1);
-            document.getElementById('btn-speed').innerText = `⚡ ${this.gameSpeed}x`;
-        });
+        const btnSpeed = document.getElementById('btn-speed');
+        if (btnSpeed) {
+            btnSpeed.addEventListener('click', () => {
+                this.gameSpeed = this.gameSpeed === 1 ? 2 : (this.gameSpeed === 2 ? 3 : 1);
+                btnSpeed.innerText = `⚡ ${this.gameSpeed}x`;
+            });
+        }
 
-        // Sound Toggle
-        document.getElementById('btn-sound').addEventListener('click', () => {
-            const enabled = soundManager.toggleSound();
-            document.getElementById('btn-sound').innerText = enabled ? '🔊 ON' : '🔇 OFF';
-        });
+        const btnSound = document.getElementById('btn-sound');
+        if (btnSound) {
+            btnSound.addEventListener('click', () => {
+                const enabled = soundManager.toggleSound();
+                btnSound.innerText = enabled ? '🔊 ON' : '🔇 OFF';
+            });
+        }
 
-        // Build Mound Button
-        document.getElementById('btn-build-mound').addEventListener('click', () => {
-            this.setBuildMode(this.buildMode === 'mound' ? null : 'mound');
-        });
+        const btnMound = document.getElementById('btn-build-mound');
+        if (btnMound) {
+            btnMound.addEventListener('click', () => {
+                this.setBuildMode(this.buildMode === 'mound' ? null : 'mound');
+            });
+        }
 
-        // Build Tower Cards Click
         const cards = document.querySelectorAll('.tower-card');
         cards.forEach(card => {
             card.addEventListener('click', () => {
@@ -113,44 +122,63 @@ export class Game {
             });
         });
 
-        // Orbital Strike Button
-        document.getElementById('btn-orbital-strike').addEventListener('click', () => {
-            if (this.baseTower.orbitalCooldown > 0) return;
-            this.setBuildMode('orbital');
-        });
+        const btnOrbital = document.getElementById('btn-orbital-strike');
+        if (btnOrbital) {
+            btnOrbital.addEventListener('click', () => {
+                if (this.baseTower.orbitalCooldown > 0) return;
+                this.setBuildMode('orbital');
+            });
+        }
 
-        // Start Wave Button
-        document.getElementById('btn-start-wave').addEventListener('click', () => {
-            this.startNextWave();
-        });
+        const btnStartWave = document.getElementById('btn-start-wave');
+        if (btnStartWave) {
+            btnStartWave.addEventListener('click', () => {
+                this.startNextWave();
+            });
+        }
 
-        // Selected Tower Panel Controls
-        document.getElementById('btn-close-panel').addEventListener('click', () => this.deselectTower());
-        document.getElementById('btn-sell-tower').addEventListener('click', () => this.sellSelectedTower());
-        document.getElementById('btn-overclock').addEventListener('click', () => this.toggleOverclockSelected());
-        document.getElementById('sel-target-strategy').addEventListener('change', (e) => {
-            if (this.selectedTower) this.selectedTower.setTargetStrategy(e.target.value);
-        });
+        const btnClosePanel = document.getElementById('btn-close-panel');
+        if (btnClosePanel) btnClosePanel.addEventListener('click', () => this.deselectTower());
 
-        // Upgrade Buttons
-        document.getElementById('btn-upgrade-normal').addEventListener('click', () => this.upgradeSelectedNormal());
-        document.getElementById('btn-branch-1').addEventListener('click', () => this.upgradeSelectedBranch('opt1'));
-        document.getElementById('btn-branch-2').addEventListener('click', () => this.upgradeSelectedBranch('opt2'));
+        const btnSell = document.getElementById('btn-sell-tower');
+        if (btnSell) btnSell.addEventListener('click', () => this.sellSelectedTower());
 
-        // Restart Modal
-        document.getElementById('btn-restart').addEventListener('click', () => location.reload());
+        const btnOverclock = document.getElementById('btn-overclock');
+        if (btnOverclock) btnOverclock.addEventListener('click', () => this.toggleOverclockSelected());
+
+        const selTarget = document.getElementById('sel-target-strategy');
+        if (selTarget) {
+            selTarget.addEventListener('change', (e) => {
+                if (this.selectedTower) this.selectedTower.setTargetStrategy(e.target.value);
+            });
+        }
+
+        const btnUpgradeNorm = document.getElementById('btn-upgrade-normal');
+        if (btnUpgradeNorm) btnUpgradeNorm.addEventListener('click', () => this.upgradeSelectedNormal());
+
+        const btnBranch1 = document.getElementById('btn-branch-1');
+        if (btnBranch1) btnBranch1.addEventListener('click', () => this.upgradeSelectedBranch('opt1'));
+
+        const btnBranch2 = document.getElementById('btn-branch-2');
+        if (btnBranch2) btnBranch2.addEventListener('click', () => this.upgradeSelectedBranch('opt2'));
+
+        const btnRestart = document.getElementById('btn-restart');
+        if (btnRestart) btnRestart.addEventListener('click', () => location.reload());
     }
 
     setBuildMode(mode) {
         this.buildMode = mode;
 
-        document.getElementById('btn-build-mound').classList.toggle('active', mode === 'mound');
+        const btnMound = document.getElementById('btn-build-mound');
+        if (btnMound) btnMound.classList.toggle('active', mode === 'mound');
+
         document.querySelectorAll('.tower-card').forEach(card => {
             card.classList.toggle('selected', card.getAttribute('data-tower-type') === mode);
         });
     }
 
     onMouseMove(e) {
+        if (!this.canvas) return;
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
@@ -202,18 +230,17 @@ export class Game {
         const cost = CONFIG.MOUND_BUILD_COST;
         if (this.gold < cost) {
             this.particleSystem.addFloatingText(col * this.cellSize + 20, row * this.cellSize + 20, '골드 부족!', '#ff4757', 14);
-            return;
+            return false;
         }
 
         if (!this.grid.canPlaceMound(col, row)) {
             this.particleSystem.addFloatingText(col * this.cellSize + 20, row * this.cellSize + 20, '설치 불가 위치!', '#ff4757', 14);
-            return;
+            return false;
         }
 
         const spawnPos = this.grid.getSpawnWorldPos();
         const basePos = this.grid.getBaseWorldPos();
 
-        // Spawn -> Base 경로 완막 검증
         const pathExists = this.pathfinder.hasValidPath(spawnPos, basePos, (c, r) => {
             if (c === col && r === row) return true;
             return this.grid.isBlocked(c, r);
@@ -222,7 +249,7 @@ export class Game {
         if (!pathExists) {
             this.particleSystem.addFloatingText(col * this.cellSize + 20, row * this.cellSize + 20, '🚫 경로 완막 불가!', '#ff4757', 14);
             soundManager.playExplosion();
-            return;
+            return false;
         }
 
         this.gold -= cost;
@@ -235,23 +262,24 @@ export class Game {
 
         this.recalculateAllEnemyPaths();
         this.setBuildMode(null);
+        return true;
     }
 
     tryBuildTower(col, row, type) {
         const mound = this.mounds.find(m => m.col === col && m.row === row);
         if (!mound) {
             this.particleSystem.addFloatingText(col * this.cellSize + 20, row * this.cellSize + 20, '둔덕 위에만 설치 가능!', '#ff4757', 13);
-            return;
+            return false;
         }
         if (mound.towerInstalled) {
             this.particleSystem.addFloatingText(col * this.cellSize + 20, row * this.cellSize + 20, '이미 건물이 존재합니다!', '#ff4757', 13);
-            return;
+            return false;
         }
 
         const spec = CONFIG.TOWERS[type];
         if (this.gold < spec.cost) {
             this.particleSystem.addFloatingText(col * this.cellSize + 20, row * this.cellSize + 20, '골드 부족!', '#ff4757', 14);
-            return;
+            return false;
         }
 
         this.gold -= spec.cost;
@@ -269,9 +297,9 @@ export class Game {
         this.particleSystem.addExplosion(building.x, building.y, '#00ffaa', 15, 4);
         this.setBuildMode(null);
 
-        // [P2 수정] 타워 설치 시 지능형 적 경로 즉시 갱신
         this.recalculateAllEnemyPaths();
         this.selectTower(building);
+        return true;
     }
 
     recalculateAllEnemyPaths() {
@@ -294,29 +322,55 @@ export class Game {
     selectTower(tower) {
         this.selectedTower = tower;
         const panel = document.getElementById('selected-panel');
+        if (!panel) return;
         panel.classList.remove('hidden');
 
-        document.getElementById('sel-tower-icon').innerText = tower.icon;
-        document.getElementById('sel-tower-name').innerText = tower.name;
-        document.getElementById('sel-tower-lvl').innerText = `Lv. ${tower.level}${tower.branch ? ` (${tower.branch.toUpperCase()})` : ''}`;
+        const elIcon = document.getElementById('sel-tower-icon');
+        if (elIcon) elIcon.innerText = tower.icon;
 
-        // [P1/P2 수정] tower.getSellValue()를 사용하여 Generator 판매 시 NaN 골드 방지
+        const elName = document.getElementById('sel-tower-name');
+        if (elName) elName.innerText = tower.name;
+
+        const elLvl = document.getElementById('sel-tower-lvl');
+        if (elLvl) elLvl.innerText = `Lv. ${tower.level}${tower.branch ? ` (${tower.branch.toUpperCase()})` : ''}`;
+
         const sellVal = tower.getSellValue ? tower.getSellValue() : Math.floor((tower.totalInvestedCost || tower.cost) * 0.7);
-        document.getElementById('sell-gold-val').innerText = Number.isFinite(sellVal) ? sellVal : 0;
+        const elSell = document.getElementById('sell-gold-val');
+        if (elSell) elSell.innerText = Number.isFinite(sellVal) ? sellVal : 0;
 
         if (tower.isUtility) {
-            document.getElementById('sel-dmg').innerText = `+${tower.incomePerSec}/s G`;
-            document.getElementById('sel-spd').innerText = 'N/A';
-            document.getElementById('sel-rng').innerText = 'N/A';
-            document.getElementById('overclock-section').classList.add('hidden');
-            document.getElementById('upgrade-section').classList.add('hidden');
+            const elDmg = document.getElementById('sel-dmg');
+            if (elDmg) elDmg.innerText = `+${tower.incomePerSec}/s G`;
+
+            const elSpd = document.getElementById('sel-spd');
+            if (elSpd) elSpd.innerText = 'N/A';
+
+            const elRng = document.getElementById('sel-rng');
+            if (elRng) elRng.innerText = 'N/A';
+
+            const ocSec = document.getElementById('overclock-section');
+            if (ocSec) ocSec.classList.add('hidden');
+
+            const upSec = document.getElementById('upgrade-section');
+            if (upSec) upSec.classList.add('hidden');
         } else {
-            document.getElementById('sel-dmg').innerText = tower.damage;
-            document.getElementById('sel-spd').innerText = `${tower.attackSpeed.toFixed(1)}/s`;
-            document.getElementById('sel-rng').innerText = tower.range;
-            document.getElementById('sel-target-strategy').value = tower.targetStrategy;
-            document.getElementById('overclock-section').classList.remove('hidden');
-            document.getElementById('upgrade-section').classList.remove('hidden');
+            const elDmg = document.getElementById('sel-dmg');
+            if (elDmg) elDmg.innerText = tower.damage;
+
+            const elSpd = document.getElementById('sel-spd');
+            if (elSpd) elSpd.innerText = `${tower.attackSpeed.toFixed(1)}/s`;
+
+            const elRng = document.getElementById('sel-rng');
+            if (elRng) elRng.innerText = tower.range;
+
+            const selTarget = document.getElementById('sel-target-strategy');
+            if (selTarget) selTarget.value = tower.targetStrategy;
+
+            const ocSec = document.getElementById('overclock-section');
+            if (ocSec) ocSec.classList.remove('hidden');
+
+            const upSec = document.getElementById('upgrade-section');
+            if (upSec) upSec.classList.remove('hidden');
 
             this.updateUpgradePanelUI();
         }
@@ -329,11 +383,13 @@ export class Game {
         const spec = CONFIG.TOWERS[tower.type];
         const btnNormal = document.getElementById('btn-upgrade-normal');
         const branchContainer = document.getElementById('branch-upgrade-container');
+        if (!btnNormal || !branchContainer) return;
 
         if (tower.level === 1) {
             btnNormal.classList.remove('hidden');
             branchContainer.classList.add('hidden');
-            document.getElementById('normal-upgrade-cost').innerText = spec.upgrades.level2Cost;
+            const elCost = document.getElementById('normal-upgrade-cost');
+            if (elCost) elCost.innerText = spec.upgrades.level2Cost;
         } else if (tower.level === 2) {
             btnNormal.classList.add('hidden');
             branchContainer.classList.remove('hidden');
@@ -343,13 +399,19 @@ export class Game {
             const b1 = branches[keys[0]];
             const b2 = branches[keys[1]];
 
-            document.getElementById('branch-1-title').innerText = b1.name;
-            document.getElementById('branch-1-desc').innerText = b1.desc;
-            document.getElementById('branch-1-cost').innerText = b1.cost;
+            const t1 = document.getElementById('branch-1-title');
+            if (t1) t1.innerText = b1.name;
+            const d1 = document.getElementById('branch-1-desc');
+            if (d1) d1.innerText = b1.desc;
+            const c1 = document.getElementById('branch-1-cost');
+            if (c1) c1.innerText = b1.cost;
 
-            document.getElementById('branch-2-title').innerText = b2.name;
-            document.getElementById('branch-2-desc').innerText = b2.desc;
-            document.getElementById('branch-2-cost').innerText = b2.cost;
+            const t2 = document.getElementById('branch-2-title');
+            if (t2) t2.innerText = b2.name;
+            const d2 = document.getElementById('branch-2-desc');
+            if (d2) d2.innerText = b2.desc;
+            const c2 = document.getElementById('branch-2-cost');
+            if (c2) c2.innerText = b2.cost;
         } else {
             btnNormal.classList.add('hidden');
             branchContainer.classList.add('hidden');
@@ -404,7 +466,6 @@ export class Game {
         const tower = this.selectedTower;
         if (!tower) return;
 
-        // [P1/P2 수정] 안전한 골드 계산 및 isFinite 검증
         const rawReturn = tower.getSellValue ? tower.getSellValue() : Math.floor((tower.totalInvestedCost || tower.cost) * 0.7);
         const returnGold = Number.isFinite(rawReturn) ? rawReturn : 0;
 
@@ -424,39 +485,49 @@ export class Game {
 
     deselectTower() {
         this.selectedTower = null;
-        document.getElementById('selected-panel').classList.add('hidden');
+        const panel = document.getElementById('selected-panel');
+        if (panel) panel.classList.add('hidden');
     }
 
     startNextWave() {
-        document.getElementById('wave-preview-overlay').classList.add('hidden');
+        const overlay = document.getElementById('wave-preview-overlay');
+        if (overlay) overlay.classList.add('hidden');
         this.waveManager.startWave(this.currentWaveNum, this.grid, this.pathfinder, this.threatMap, this.enemies);
     }
 
     updateWavePreviewUI() {
         const recipe = this.waveManager.getWaveRecipe(this.currentWaveNum);
-        document.getElementById('preview-wave-num').innerText = `WAVE ${this.currentWaveNum}`;
-        document.getElementById('preview-tip-text').innerText = recipe.tip;
+
+        const elNum = document.getElementById('preview-wave-num');
+        if (elNum) elNum.innerText = `WAVE ${this.currentWaveNum}`;
+
+        const elTip = document.getElementById('preview-tip-text');
+        if (elTip) elTip.innerText = recipe.tip;
 
         const container = document.getElementById('preview-enemy-list');
-        container.innerHTML = '';
-
-        for (const grp of recipe.groups) {
-            const spec = CONFIG.ENEMIES[grp.type] || CONFIG.ENEMIES.basic;
-            const item = document.createElement('div');
-            item.className = 'preview-item';
-            item.innerHTML = `
-                <span><strong style="color:${spec.color}">${spec.name}</strong> × ${grp.count}</span>
-                <span class="hud-sub">HP: ${spec.hp} | SPD: ${spec.speed}</span>
-            `;
-            container.appendChild(item);
+        if (container) {
+            container.innerHTML = '';
+            for (const grp of recipe.groups) {
+                const spec = CONFIG.ENEMIES[grp.type] || CONFIG.ENEMIES.basic;
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.innerHTML = `
+                    <span><strong style="color:${spec.color}">${spec.name}</strong> × ${grp.count}</span>
+                    <span class="hud-sub">HP: ${spec.hp} | SPD: ${spec.speed}</span>
+                `;
+                if (container.appendChild) container.appendChild(item);
+            }
         }
 
-        document.getElementById('wave-preview-overlay').classList.remove('hidden');
+        const overlay = document.getElementById('wave-preview-overlay');
+        if (overlay) overlay.classList.remove('hidden');
     }
 
     start() {
         this.updateWavePreviewUI();
-        requestAnimationFrame((t) => this.loop(t));
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame((t) => this.loop(t));
+        }
     }
 
     loop(timestamp) {
@@ -471,7 +542,9 @@ export class Game {
         }
 
         this.render();
-        requestAnimationFrame((t) => this.loop(t));
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame((t) => this.loop(t));
+        }
     }
 
     update(dt) {
@@ -513,7 +586,6 @@ export class Game {
                     this.particleSystem.addFloatingText(enemy.x, enemy.y, `+${enemy.reward}G`, '#ffd166', 13);
                     soundManager.playKill();
 
-                    // Splitter Trait: Spawn 3 Mini Swarm
                     if (enemy.type === 'splitter') {
                         for (let s = 0; s < 3; s++) {
                             const mini = new Enemy('swarm', enemy.path, { x: enemy.x + (s - 1) * 10, y: enemy.y });
@@ -535,8 +607,8 @@ export class Game {
             }
         }
 
-        // 8. Wave Clear Check
-        if (this.waveManager.isWaveActive && this.spawnQueue.length === 0 && this.enemies.length === 0) {
+        // 8. Wave Clear Check [P1 2차 수정]: this.spawnQueue -> this.waveManager.spawnQueue 수정!
+        if (this.waveManager.isWaveActive && this.waveManager.spawnQueue.length === 0 && this.enemies.length === 0) {
             this.waveManager.isWaveActive = false;
             this.currentWaveNum++;
             this.gold += 100;
@@ -549,55 +621,71 @@ export class Game {
     }
 
     updateHUDUI() {
-        // [P1/P2 수정] Gold 표시 시 isFinite 검증
-        document.getElementById('gold-val').innerText = Number.isFinite(this.gold) ? Math.floor(this.gold) : 0;
+        const elGold = document.getElementById('gold-val');
+        if (elGold) elGold.innerText = Number.isFinite(this.gold) ? Math.floor(this.gold) : 0;
 
         let totalIncome = this.passiveIncomeRate;
         for (const t of this.towers) if (t.isUtility) totalIncome += t.incomePerSec;
-        document.getElementById('income-val').innerText = `(+${totalIncome}/s)`;
 
-        document.getElementById('wave-val').innerText = this.currentWaveNum;
+        const elInc = document.getElementById('income-val');
+        if (elInc) elInc.innerText = `(+${totalIncome}/s)`;
+
+        const elWave = document.getElementById('wave-val');
+        if (elWave) elWave.innerText = this.currentWaveNum;
 
         const hpPercent = (this.baseTower.hp / this.baseTower.maxHp) * 100;
-        document.getElementById('base-hp-bar').style.width = `${hpPercent}%`;
-        document.getElementById('base-hp-val').innerText = `${Math.ceil(this.baseTower.hp)} / ${this.baseTower.maxHp}`;
+        const elHpBar = document.getElementById('base-hp-bar');
+        if (elHpBar) elHpBar.style.width = `${hpPercent}%`;
+
+        const elHpVal = document.getElementById('base-hp-val');
+        if (elHpVal) elHpVal.innerText = `${Math.ceil(this.baseTower.hp)} / ${this.baseTower.maxHp}`;
 
         const cdElem = document.getElementById('orbital-cooldown');
-        if (this.baseTower.orbitalCooldown > 0) {
-            cdElem.innerText = `${Math.ceil(this.baseTower.orbitalCooldown)}s`;
-            cdElem.style.color = '#ff4757';
-        } else {
-            cdElem.innerText = 'READY';
-            cdElem.style.color = '#00ffaa';
+        if (cdElem) {
+            if (this.baseTower.orbitalCooldown > 0) {
+                cdElem.innerText = `${Math.ceil(this.baseTower.orbitalCooldown)}s`;
+                cdElem.style.color = '#ff4757';
+            } else {
+                cdElem.innerText = 'READY';
+                cdElem.style.color = '#00ffaa';
+            }
         }
 
         if (this.selectedTower && !this.selectedTower.isUtility) {
             const heatFill = document.getElementById('heat-bar-fill');
             const heatText = document.getElementById('heat-status-text');
 
-            heatFill.style.width = `${this.selectedTower.heat}%`;
+            if (heatFill) heatFill.style.width = `${this.selectedTower.heat}%`;
 
-            if (statusSystem.hasEffect(this.selectedTower, 'Overheat')) {
-                heatText.innerText = 'OVERHEAT (DISABLED)';
-                heatText.style.color = '#ff4757';
-            } else if (this.selectedTower.isOverclocked) {
-                heatText.innerText = 'OVERCLOCKED!';
-                heatText.style.color = '#ff7f50';
-            } else {
-                heatText.innerText = 'NORMAL';
-                heatText.style.color = '#94a3b8';
+            if (heatText) {
+                if (statusSystem.hasEffect(this.selectedTower, 'Overheat')) {
+                    heatText.innerText = 'OVERHEAT (DISABLED)';
+                    heatText.style.color = '#ff4757';
+                } else if (this.selectedTower.isOverclocked) {
+                    heatText.innerText = 'OVERCLOCKED!';
+                    heatText.style.color = '#ff7f50';
+                } else {
+                    heatText.innerText = 'NORMAL';
+                    heatText.style.color = '#94a3b8';
+                }
             }
         }
     }
 
     triggerGameOver() {
         this.isGameOver = true;
-        document.getElementById('final-wave').innerText = this.currentWaveNum;
-        document.getElementById('final-kills').innerText = this.totalKills;
-        document.getElementById('game-over-modal').classList.remove('hidden');
+        const elFW = document.getElementById('final-wave');
+        if (elFW) elFW.innerText = this.currentWaveNum;
+
+        const elFK = document.getElementById('final-kills');
+        if (elFK) elFK.innerText = this.totalKills;
+
+        const modal = document.getElementById('game-over-modal');
+        if (modal) modal.classList.remove('hidden');
     }
 
     render() {
+        if (!this.ctx) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         this.grid.render(this.ctx, this.hoverCell, this.selectedTower, this.threatMap);

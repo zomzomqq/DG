@@ -11,6 +11,7 @@ import { soundManager } from '../engine/SoundManager.js';
 import { GatlingTower } from '../entities/towers/GatlingTower.js';
 import { CannonTower } from '../entities/towers/CannonTower.js';
 import { FrostTower } from '../entities/towers/FrostTower.js';
+import { Game } from '../engine/Game.js';
 
 export function runSmokeTests() {
     const results = [];
@@ -40,7 +41,6 @@ export function runSmokeTests() {
         const spawnPos = grid.getSpawnWorldPos();
         const basePos = grid.getBaseWorldPos();
 
-        // Valid Mound placement check
         const canBuildValid = pathfinder.hasValidPath(spawnPos, basePos, (c, r) => {
             if (c === 5 && r === 5) return true;
             return grid.isBlocked(c, r);
@@ -72,9 +72,8 @@ export function runSmokeTests() {
     try {
         const path = [{ x: 10, y: 10 }, { x: 50, y: 50 }];
         const splitter = new Enemy('splitter', path, { x: 10, y: 10 });
-        splitter.takeDamage(999); // Kill splitter
+        splitter.takeDamage(999);
 
-        // Mini swarm spawn test
         const miniEnemies = [];
         if (!splitter.active) {
             for (let s = 0; s < 3; s++) {
@@ -95,7 +94,7 @@ export function runSmokeTests() {
     // Test 5: SoundManager init sequence
     try {
         soundManager.init();
-        soundManager.playBuild(); // Should not throw even if AudioContext state is suspended
+        soundManager.playBuild();
         results.push({ name: "[P2] SoundManager Init Sequence", status: "PASS", detail: "Sound calls executed cleanly." });
     } catch (e) {
         results.push({ name: "[P2] SoundManager Init Sequence", status: "ERROR", detail: e.message });
@@ -107,7 +106,7 @@ export function runSmokeTests() {
         statusSystem.applyEffect(enemy, 'Shield', 5.0, 50);
 
         const initialHp = enemy.hp;
-        enemy.takeDamage(30); // 30 Damage should be absorbed by 50 Shield
+        enemy.takeDamage(30);
 
         const remainingShield = statusSystem.getEffectValue(enemy, 'Shield');
 
@@ -118,6 +117,41 @@ export function runSmokeTests() {
         }
     } catch (e) {
         results.push({ name: "[P2] Engineer Shield Buff Absorption", status: "ERROR", detail: e.message });
+    }
+
+    // Test 7: [FULL E2E INTEGRATION TEST] Game.startNextWave -> Game.update Loop (Catches P1 spawnQueue crash & Full Flow)
+    try {
+        const game = new Game('game-canvas');
+        
+        // 1. Build a mound and tower
+        game.tryBuildMound(5, 5);
+        game.tryBuildTower(6, 3, 'gatling');
+        game.tryBuildTower(6, 4, 'cannon');
+        game.tryBuildTower(11, 8, 'frost');
+        game.tryBuildTower(17, 3, 'generator');
+
+        // 2. Start Wave 1
+        game.startNextWave();
+        if (!game.waveManager.isWaveActive) {
+            throw new Error("Wave failed to activate!");
+        }
+
+        // 3. Run Game.update() for 300 ticks (simulating 30 seconds of gameplay)
+        let crashed = false;
+        let spawnedEnemyCount = 0;
+
+        for (let tick = 0; tick < 300; tick++) {
+            game.update(0.1);
+            if (game.enemies.length > 0) spawnedEnemyCount++;
+        }
+
+        if (spawnedEnemyCount > 0 && !game.isGameOver && Number.isFinite(game.gold)) {
+            results.push({ name: "[P1/E2E] Full Game Update Loop & Wave 1 Flow", status: "PASS", detail: `300 ticks updated cleanly. Enemies spawned: ${spawnedEnemyCount}, Gold: ${Math.floor(game.gold)}` });
+        } else {
+            results.push({ name: "[P1/E2E] Full Game Update Loop & Wave 1 Flow", status: "FAIL", detail: "Wave 1 flow did not spawn enemies or updated improperly." });
+        }
+    } catch (e) {
+        results.push({ name: "[P1/E2E] Full Game Update Loop & Wave 1 Flow", status: "ERROR", detail: e.stack || e.message });
     }
 
     // Output Test Summary
