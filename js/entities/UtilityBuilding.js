@@ -3,6 +3,7 @@ import { CONFIG } from '../config.js';
 
 export class Generator {
     constructor(col, row, cellSize) {
+        this.id = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         this.col = col;
         this.row = row;
         this.cellSize = cellSize;
@@ -14,11 +15,20 @@ export class Generator {
         this.type = "generator";
         this.icon = "⚡";
         this.cost = CONFIG.TOWERS.generator.cost;
+        
+        // [P1/P2 수정] Generator에도 totalInvestedCost 속성 명시 (판매 시 NaN 골드 오염 방지)
+        this.totalInvestedCost = this.cost;
+
         this.incomePerSec = CONFIG.TOWERS.generator.incomePerSec;
 
         this.level = 1;
+        this.branch = null;
         this.active = true;
         this.animAngle = 0;
+    }
+
+    getSellValue() {
+        return Math.floor(this.totalInvestedCost * 0.7);
     }
 
     update(dt) {

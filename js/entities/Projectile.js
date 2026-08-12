@@ -19,7 +19,6 @@ export class Projectile {
         this.active = true;
         this.radius = params.type === 'cannon' ? 5 : 3;
 
-        // 직선 관통 빔 (Railgun)
         if (this.type === 'railgun') {
             this.isBeam = true;
             this.targetAngle = Math.atan2(this.targetPos.y - this.y, this.targetPos.x - this.x);
@@ -29,7 +28,6 @@ export class Projectile {
     update(dt, enemyList, projectileList, particleSystem, soundManager) {
         if (!this.active) return;
 
-        // 1. Railgun Beam Direct Piercing Hit
         if (this.type === 'railgun') {
             const endX = this.x + Math.cos(this.targetAngle) * 600;
             const endY = this.y + Math.sin(this.targetAngle) * 600;
@@ -49,7 +47,6 @@ export class Projectile {
             return;
         }
 
-        // 2. Normal Guided / Ballistic Projectile
         if (this.target && this.target.active && this.target.hp > 0) {
             this.targetPos = { x: this.target.x, y: this.target.y };
         }
@@ -59,7 +56,6 @@ export class Projectile {
         const dist = Math.hypot(dx, dy);
 
         if (dist <= this.speed * dt + 5) {
-            // Hit Target Position
             this.hitTarget(enemyList, projectileList, particleSystem, soundManager);
             this.active = false;
         } else {
@@ -70,7 +66,6 @@ export class Projectile {
 
     hitTarget(enemyList, projectileList, particleSystem, soundManager) {
         if (this.type === 'bullet' || this.type === 'base_laser') {
-            // Single Target Hit
             if (this.target && this.target.active && this.target.hp > 0) {
                 let dmg = this.damage;
                 if (statusSystem.hasEffect(this.target, 'Shattered')) {
@@ -85,18 +80,15 @@ export class Projectile {
                 }
             }
         } else if (this.type === 'cannon' || this.type === 'cluster') {
-            // Splash Explosion Hit
             soundManager.playExplosion();
 
-            // Synergy Check
             const { finalDamage, finalSplash } = SynergySystem.processCannonHit(
-                this.target, this.damage, this.splashRadius, particleSystem
+                this.target, this.damage, this.splashRadius, enemyList, particleSystem
             );
 
             particleSystem.addExplosion(this.x, this.y, '#ff7f50', 20, 5);
             particleSystem.addShockwaveRing(this.x, this.y, finalSplash, 'rgba(255, 127, 80, 0.7)');
 
-            // Damage all enemies in splash radius
             for (const enemy of enemyList) {
                 if (enemy.active && enemy.hp > 0) {
                     const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
@@ -107,7 +99,6 @@ export class Projectile {
                 }
             }
 
-            // Cluster Sub-munitions Spawn
             if (this.clusterCount > 0 && projectileList) {
                 for (let i = 0; i < this.clusterCount; i++) {
                     const angle = (Math.PI * 2 / this.clusterCount) * i + Math.random() * 0.5;

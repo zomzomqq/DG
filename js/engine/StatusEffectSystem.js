@@ -14,11 +14,10 @@ export class StatusEffectSystem {
             this.activeEffects.set(target.id, targetEffects);
         }
 
-        // 중복 효과 갱신 또는 추가
         const existing = targetEffects.find(e => e.type === effectType);
         if (existing) {
             existing.duration = Math.max(existing.duration, duration);
-            existing.value = Math.max(existing.value, value);
+            existing.value = value; // [수정] 직접 수치 갱신
         } else {
             targetEffects.push({
                 type: effectType,
@@ -26,6 +25,17 @@ export class StatusEffectSystem {
                 value,
                 maxDuration: duration
             });
+        }
+    }
+
+    setEffectValue(target, effectType, value) {
+        if (!target || !target.id) return;
+        const targetEffects = this.activeEffects.get(target.id);
+        if (targetEffects) {
+            const existing = targetEffects.find(e => e.type === effectType);
+            if (existing) {
+                existing.value = value;
+            }
         }
     }
 

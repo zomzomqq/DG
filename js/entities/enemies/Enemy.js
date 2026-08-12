@@ -25,6 +25,9 @@ export class Enemy {
         this.regenRate = spec.regenRate || 0;
         this.auraRange = spec.auraRange || 0;
 
+        // [P3 수정] 피격 후 일정 시간(3초) 미피격 시에만 자연 회복
+        this.timeSinceLastHit = 999;
+
         // Path Movement
         this.path = path || [];
         this.pathIndex = 0;
@@ -48,7 +51,6 @@ export class Enemy {
     updatePath(newPath) {
         if (!newPath || newPath.length === 0) return;
         this.path = newPath;
-        // 현재 위치에서 가장 가까운 경로 노드 인덱스 찾기
         let closestDist = Infinity;
         let closestIdx = 0;
         for (let i = 0; i < newPath.length; i++) {
@@ -71,9 +73,21 @@ export class Enemy {
     }
 
     takeDamage(amount, damageType = 'normal') {
+        this.timeSinceLastHit = 0; // Reset last hit timer
         let finalDamage = amount;
 
-        // 1. Shield Absorb First
+        // [P2 수정] Engineer 쉴드 버프(statusSystem Shield) 및 본체 shieldHp 통합 반영
+        const statusShield = statusSystem.getEffectValue(this, 'Shield');
+        if (statusShield > 0) {
+            if (statusShield >= finalDamage) {
+                statusSystem.applyEffect(this, 'Shield', 1.0, statusShield - finalDamage);
+                return;
+            } else {
+                finalDamage -= statusShield;
+                statusSystem.removeEffect(this, 'Shield');
+            }
+        }
+
         if (this.shieldHp > 0) {
             if (this.shieldHp >= finalDamage) {
                 this.shieldHp -= finalDamage;
@@ -84,7 +98,6 @@ export class Enemy {
             }
         }
 
-        // 2. Main HP Reduction
         this.hp -= finalDamage;
         if (this.hp <= 0) {
             this.hp = 0;
@@ -95,8 +108,10 @@ export class Enemy {
     update(dt, gameEngine) {
         if (!this.active || this.hp <= 0) return;
 
-        // Regenerator Trait: HP Natural Regeneration
-        if (this.regenRate > 0 && this.hp < this.maxHp) {
+        this.timeSinceLastHit += dt;
+
+        // [P3 수정] Regenerator Trait: 피격되지 않은 상태로 3초 이상 경과 시 회복
+        if (this.regenRate > 0 && this.hp < this.maxHp && this.timeSinceLastHit >= 3.0) {
             this.hp = Math.min(this.maxHp, this.hp + this.regenRate * dt);
         }
 
@@ -109,11 +124,10 @@ export class Enemy {
             }
         }
 
-        // Status Effects & Speed Multipliers
         let speedMult = 1.0;
 
         if (statusSystem.hasEffect(this, 'Frozen')) {
-            speedMult = 0; // Completely Frozen Stop
+            speedMult = 0;
         } else if (statusSystem.hasEffect(this, 'Chilled')) {
             const slowVal = statusSystem.getEffectValue(this, 'Chilled');
             const effectiveSlow = slowVal * (1 - this.slowResist);
@@ -122,7 +136,6 @@ export class Enemy {
 
         this.currentSpeed = this.speed * speedMult;
 
-        // Path Following Movement
         if (this.path && this.pathIndex < this.path.length) {
             const targetNode = this.path[this.pathIndex];
             const dx = targetNode.x - this.x;
@@ -137,7 +150,6 @@ export class Enemy {
                 this.pathIndex++;
 
                 if (this.pathIndex >= this.path.length) {
-                    // 메인 타워 도달
                     this.onReachBase(gameEngine);
                 }
             } else {
@@ -162,7 +174,6 @@ export class Enemy {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Body Circle Rendering
         ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.arc(0, 0, this.size, 0, Math.PI * 2);
@@ -172,8 +183,8 @@ export class Enemy {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Shield Outer Ring Visual
-        if (this.shieldHp > 0) {
+        const statusShield = statusSystem.getEffectValue(this, 'Shield');
+        if (this.shieldHp > 0 || statusShield > 0) {
             ctx.strokeStyle = '#3498db';
             ctx.lineWidth = 2.5;
             ctx.beginPath();
@@ -181,7 +192,6 @@ export class Enemy {
             ctx.stroke();
         }
 
-        // HP Bar
         const barWidth = 24;
         const barHeight = 4;
         const hpPercent = this.hp / this.maxHp;
@@ -194,7 +204,6 @@ export class Enemy {
 
         ctx.restore();
 
-        // Render Status Badges (Chilled, Shattered, Marked etc.)
         statusSystem.renderTargetBadges(ctx, this);
     }
 }

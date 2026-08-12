@@ -25,7 +25,7 @@ export class Tower {
 
         this.level = 1; // Lv 1, Lv 2, Lv 3 (Branch)
         this.branch = null; // 'minigun', 'railgun', 'siege', 'cluster', 'blizzard', 'cryo'
-        this.targetStrategy = 'First'; // 'First', 'Last', 'Strongest', 'Weakest', 'Fastest'
+        this.targetStrategy = 'First';
 
         this.cooldownTimer = 0;
         this.target = null;
@@ -38,7 +38,12 @@ export class Tower {
         this.rotation = 0;
     }
 
+    getSellValue() {
+        return Math.floor((this.totalInvestedCost || this.cost) * 0.7);
+    }
+
     getDPS() {
+        // [P2 수정] Overclock 시 공속 +60% (1.6배) 일관 적용
         return this.damage * this.attackSpeed * (this.isOverclocked ? 1.6 : 1.0);
     }
 
@@ -85,7 +90,6 @@ export class Tower {
     }
 
     updateHeat(dt) {
-        // EMP 또는 Overheat 디버프 체크
         if (statusSystem.hasEffect(this, 'EMP')) {
             this.isOverclocked = false;
             return;
@@ -93,7 +97,7 @@ export class Tower {
 
         if (statusSystem.hasEffect(this, 'Overheat')) {
             this.isOverclocked = false;
-            this.heat = Math.max(0, this.heat - dt * 30); // 쿨다운 쿨링
+            this.heat = Math.max(0, this.heat - dt * 30);
             return;
         }
 
@@ -102,7 +106,7 @@ export class Tower {
             if (this.heat >= 100) {
                 this.heat = 100;
                 this.isOverclocked = false;
-                statusSystem.applyEffect(this, 'Overheat', 5.0); // 5초 과열 공격 마비
+                statusSystem.applyEffect(this, 'Overheat', 5.0); // 5초 과열
             }
         } else {
             this.heat = Math.max(0, this.heat - dt * 25);
@@ -113,7 +117,7 @@ export class Tower {
         this.updateHeat(dt);
 
         if (statusSystem.hasEffect(this, 'Overheat') || statusSystem.hasEffect(this, 'EMP')) {
-            return; // Overheat/EMP 상태 시 공격 불가
+            return;
         }
 
         this.cooldownTimer -= dt;
@@ -131,6 +135,7 @@ export class Tower {
         }
 
         if (this.cooldownTimer <= 0 && this.target) {
+            // [P2 수정] Overclock 시 공속 1.6배 적용 (+60% DPS)
             const currentSpeed = this.isOverclocked ? this.attackSpeed * 1.6 : this.attackSpeed;
             this.cooldownTimer = 1 / currentSpeed;
             this.fire(enemyList, projectileList, particleSystem, soundManager);
@@ -138,7 +143,7 @@ export class Tower {
     }
 
     fire(enemyList, projectileList, particleSystem, soundManager) {
-        // Abstract method implemented by subclasses
+        // Abstract method
     }
 
     render(ctx, isSelected = false) {
@@ -147,7 +152,6 @@ export class Tower {
         ctx.save();
         ctx.translate(this.x, this.y - off);
 
-        // Selection Range Indicator
         if (isSelected) {
             ctx.strokeStyle = 'rgba(0, 210, 255, 0.4)';
             ctx.lineWidth = 1.5;
@@ -159,10 +163,8 @@ export class Tower {
             ctx.fill();
         }
 
-        // Subclass Specific Turret Graphics rendering
         this.renderTurret(ctx);
 
-        // Overheat / EMP Icon
         if (statusSystem.hasEffect(this, 'Overheat')) {
             ctx.font = '14px sans-serif';
             ctx.textAlign = 'center';
@@ -177,7 +179,6 @@ export class Tower {
     }
 
     renderTurret(ctx) {
-        // Base Turret Plate
         ctx.fillStyle = '#334155';
         ctx.beginPath();
         ctx.arc(0, 0, 14, 0, Math.PI * 2);

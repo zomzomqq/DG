@@ -24,8 +24,9 @@ export class SoundManager {
     }
 
     playShoot(type) {
-        if (!this.enabled || !this.ctx) return;
-        this.init();
+        if (!this.enabled) return;
+        this.init(); // [P2 수정] init()을 먼저 호출하여 ctx 초기화 보장
+        if (!this.ctx) return;
 
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
@@ -69,13 +70,13 @@ export class SoundManager {
     }
 
     playExplosion() {
-        if (!this.enabled || !this.ctx) return;
+        if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
 
         const now = this.ctx.currentTime;
 
-        // 노이즈 버퍼 생성
-        const bufferSize = this.ctx.sampleRate * 0.3; // 0.3초
+        const bufferSize = this.ctx.sampleRate * 0.3;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) {
@@ -102,8 +103,9 @@ export class SoundManager {
     }
 
     playBuild() {
-        if (!this.enabled || !this.ctx) return;
+        if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
 
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
@@ -124,16 +126,17 @@ export class SoundManager {
     }
 
     playKill() {
-        if (!this.enabled || !this.ctx) return;
+        if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
 
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
         osc.type = 'square';
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.setValueAtTime(659.25, now + 0.05); // E5
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.05);
 
         gain.gain.setValueAtTime(0.1, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
@@ -146,8 +149,9 @@ export class SoundManager {
     }
 
     playOrbitalStrike() {
-        if (!this.enabled || !this.ctx) return;
+        if (!this.enabled) return;
         this.init();
+        if (!this.ctx) return;
 
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();

@@ -7,13 +7,17 @@ export class CannonTower extends Tower {
     constructor(col, row, cellSize) {
         super(col, row, 'cannon', cellSize);
         this.splashRadius = CONFIG.TOWERS.cannon.splashRadius;
+        this.clusterCount = 0;
     }
 
     upgradeBranch(branchKey) {
         const ok = super.upgradeBranch(branchKey);
         if (ok) {
             const spec = CONFIG.TOWERS.cannon.upgrades.branches[branchKey];
-            if (spec.splashMult) this.splashRadius = Math.floor(this.splashRadius * spec.splashMult);
+            if (spec.splashMult) {
+                // [P2 수정] Branch 수치는 여기서 single source of truth로 적용
+                this.splashRadius = Math.floor(CONFIG.TOWERS.cannon.splashRadius * spec.splashMult);
+            }
             this.clusterCount = spec.clusterCount || 0;
         }
         return ok;
@@ -25,17 +29,15 @@ export class CannonTower extends Tower {
         const isSiege = this.branch === 'siege';
         const isCluster = this.branch === 'cluster';
 
-        const splash = isSiege ? this.splashRadius * 1.5 : this.splashRadius;
-        const dmg = this.damage * (this.isOverclocked ? 1.5 : 1.0);
-
+        // [P2 수정] 중복 곱셈 제거
         projectileList.push(new Projectile({
             x: this.x,
             y: this.y,
             target: this.target,
-            damage: dmg,
+            damage: this.damage,
             speed: 420,
             type: 'cannon',
-            splashRadius: splash,
+            splashRadius: this.splashRadius,
             clusterCount: isCluster ? 4 : 0,
             color: isSiege ? '#ff4757' : '#ff7f50',
             towerRef: this
@@ -49,21 +51,17 @@ export class CannonTower extends Tower {
 
         ctx.fillStyle = '#475569';
         if (this.branch === 'siege') {
-            // Large Heavy Siege Cannon
             ctx.fillRect(2, -7, 24, 14);
             ctx.fillStyle = '#ff4757';
             ctx.fillRect(22, -8, 5, 16);
         } else if (this.branch === 'cluster') {
-            // Quad Cluster Cannon Barrel
             ctx.fillRect(2, -6, 20, 12);
             ctx.fillStyle = '#ffd166';
             ctx.fillRect(18, -7, 4, 14);
         } else {
-            // Standard Cannon Barrel
             ctx.fillRect(2, -5, 18, 10);
         }
 
-        // Center Cannon Body
         ctx.fillStyle = this.isOverclocked ? '#ff4757' : '#ff7f50';
         ctx.beginPath();
         ctx.arc(0, 0, 9, 0, Math.PI * 2);

@@ -11,7 +11,6 @@ export class WaveManager {
     }
 
     getWaveRecipe(waveNum) {
-        // 데이터 기반 스테이지 웨이브 레시피
         if (waveNum === 1) {
             return {
                 wave: 1,
@@ -61,11 +60,11 @@ export class WaveManager {
             return {
                 wave: 6,
                 groups: [
-                    { type: 'runner', count: 12, interval: 0.4 },
-                    { type: 'regenerator', count: 4, interval: 1.5 },
-                    { type: 'unstoppable', count: 3, interval: 2.0 }
+                    { type: 'runner', count: 10, interval: 0.4 },
+                    { type: 'splitter', count: 4, interval: 1.5 }, // [P2/P3 수정] Splitter 등장 연결
+                    { type: 'regenerator', count: 3, interval: 2.0 }
                 ],
-                tip: "체력을 회복하는 리제네레이터와 둔화 저항 유닛입니다! 가틀ling+캐논 Marked 시너지를 활용하세요."
+                tip: "사망 시 분열하는 스플리터와 체력 회복 유닛입니다! 광역 스플래시 캐논으로 원거리 처리하세요."
             };
         } else if (waveNum === 10) {
             return {
@@ -78,13 +77,13 @@ export class WaveManager {
                 tip: "⚠️ BOSS WARNING: Siege Walker 보스가 등장합니다! 4단계 페이즈(Shield, EMP, Rage)에 대비하세요!"
             };
         } else {
-            // 무한 절차적 난이도 생성 웨이브 (Wave 7, 8, 9, 11+)
             const mult = Math.min(3, 1 + (waveNum - 6) * 0.25);
             return {
                 wave: waveNum,
                 groups: [
                     { type: 'basic', count: Math.floor(12 * mult), interval: 0.5 },
                     { type: 'runner', count: Math.floor(8 * mult), interval: 0.4 },
+                    { type: 'splitter', count: Math.floor(3 * mult), interval: 1.2 },
                     { type: 'tank', count: Math.floor(4 * mult), interval: 1.5 },
                     { type: 'shield', count: Math.floor(5 * mult), interval: 1.0 },
                     { type: 'swarm', count: Math.floor(15 * mult), interval: 0.25 }
@@ -124,10 +123,8 @@ export class WaveManager {
             const spawnPos = grid.getSpawnWorldPos();
             const basePos = grid.getBaseWorldPos();
 
-            // 적 AI Level에 따른 경로 생성
-            const enemySpec = Enemy;
             let aiLevel = 'normal';
-            if (nextItem.type === 'runner' || nextItem.type === 'shield' || nextItem.type === 'engineer') aiLevel = 'smart';
+            if (nextItem.type === 'runner' || nextItem.type === 'shield' || nextItem.type === 'engineer' || nextItem.type === 'splitter') aiLevel = 'smart';
             if (nextItem.type === 'boss') aiLevel = 'elite';
 
             const path = pathfinder.findPath(spawnPos, basePos, (c, r) => grid.isBlocked(c, r), threatMap, aiLevel);

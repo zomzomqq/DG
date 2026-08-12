@@ -14,6 +14,8 @@ import { GatlingTower } from '../entities/towers/GatlingTower.js';
 import { CannonTower } from '../entities/towers/CannonTower.js';
 import { FrostTower } from '../entities/towers/FrostTower.js';
 import { WaveManager } from '../entities/WaveManager.js';
+// [P2/P3 수정] Splitter 사망 시 분열 생성을 위한 Enemy 클래스 명시적 import
+import { Enemy } from '../entities/enemies/Enemy.js';
 
 export class Game {
     constructor(canvasId) {
@@ -73,6 +75,15 @@ export class Game {
     }
 
     bindEvents() {
+        // [P2 수정] 유저 첫 클릭 상호작용 시 Web Audio API AudioContext 초기화 보장
+        const initAudio = () => {
+            soundManager.init();
+            window.removeEventListener('pointerdown', initAudio);
+            window.removeEventListener('click', initAudio);
+        };
+        window.addEventListener('pointerdown', initAudio);
+        window.addEventListener('click', initAudio);
+
         this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         this.canvas.addEventListener('click', (e) => this.onClick(e));
 
@@ -133,7 +144,6 @@ export class Game {
     setBuildMode(mode) {
         this.buildMode = mode;
 
-        // UI active classes
         document.getElementById('btn-build-mound').classList.toggle('active', mode === 'mound');
         document.querySelectorAll('.tower-card').forEach(card => {
             card.classList.toggle('selected', card.getAttribute('data-tower-type') === mode);
@@ -159,7 +169,6 @@ export class Game {
         if (!this.hoverCell) return;
         const { col, row } = this.hoverCell;
 
-        // 1. Orbital Strike Skill Execution
         if (this.buildMode === 'orbital') {
             const worldPos = {
                 x: col * this.cellSize + this.cellSize / 2,
@@ -171,19 +180,16 @@ export class Game {
             return;
         }
 
-        // 2. Build New Mound (둔덕 신규 설치 & 완막 검증)
         if (this.buildMode === 'mound') {
             this.tryBuildMound(col, row);
             return;
         }
 
-        // 3. Build Tower / Generator on Mound
         if (this.buildMode && this.buildMode !== 'mound') {
             this.tryBuildTower(col, row, this.buildMode);
             return;
         }
 
-        // 4. Select Tower on Mound
         const mound = this.mounds.find(m => m.col === col && m.row === row);
         if (mound && mound.towerInstalled) {
             this.selectTower(mound.towerInstalled);
@@ -204,12 +210,12 @@ export class Game {
             return;
         }
 
-        // Spawn -> Base 경로 완전 차단 검증
         const spawnPos = this.grid.getSpawnWorldPos();
         const basePos = this.grid.getBaseWorldPos();
 
+        // Spawn -> Base 경로 완막 검증
         const pathExists = this.pathfinder.hasValidPath(spawnPos, basePos, (c, r) => {
-            if (c === col && r === row) return true; // 가상 둔덕
+            if (c === col && r === row) return true;
             return this.grid.isBlocked(c, r);
         });
 
@@ -219,7 +225,6 @@ export class Game {
             return;
         }
 
-        // 건설 적용
         this.gold -= cost;
         this.grid.setMound(col, row);
         const newMound = new Mound(col, row, this.cellSize);
@@ -228,7 +233,6 @@ export class Game {
         this.soundManager.playBuild();
         this.particleSystem.addExplosion(newMound.x, newMound.y, '#00d2ff', 12, 4);
 
-        // 필드 위 모든 적 경로 실시간 재계산
         this.recalculateAllEnemyPaths();
         this.setBuildMode(null);
     }
@@ -250,7 +254,6 @@ export class Game {
             return;
         }
 
-        // 건설 진행
         this.gold -= spec.cost;
         let building = null;
 
@@ -265,6 +268,9 @@ export class Game {
         this.soundManager.playBuild();
         this.particleSystem.addExplosion(building.x, building.y, '#00ffaa', 15, 4);
         this.setBuildMode(null);
+
+        // [P2 수정] 타워 설치 시 지능형 적 경로 즉시 갱신
+        this.recalculateAllEnemyPaths();
         this.selectTower(building);
     }
 
@@ -278,7 +284,9 @@ export class Game {
                 const newPath = this.pathfinder.findPath(
                     enemyPos, basePos, (c, r) => this.grid.isBlocked(c, r), this.threatMap, enemy.aiLevel
                 );
-                enemy.updatePath(newPath);
+                if (newPath) {
+                    enemy.updatePath(newPath);
+                }
             }
         }
     }
@@ -292,9 +300,10 @@ export class Game {
         document.getElementById('sel-tower-name').innerText = tower.name;
         document.getElementById('sel-tower-lvl').innerText = `Lv. ${tower.level}${tower.branch ? ` (${tower.branch.toUpperCase()})` : ''}`;
 
-        document.getElementById('sell-gold-val').innerText = Math.floor(tower.totalInvestedCost * 0.7);
+        // [P1/P2 수정] tower.getSellValue()를 사용하여 Generator 판매 시 NaN 골드 방지
+        const sellVal = tower.getSellValue ? tower.getSellValue() : Math.floor((tower.totalInvestedCost || tower.cost) * 0.7);
+        document.getElementById('sell-gold-val').innerText = Number.isFinite(sellVal) ? sellVal : 0;
 
-        // Stats Display
         if (tower.isUtility) {
             document.getElementById('sel-dmg').innerText = `+${tower.incomePerSec}/s G`;
             document.getElementById('sel-spd').innerText = 'N/A';
@@ -350,6 +359,7 @@ export class Game {
     toggleOverclockSelected() {
         if (!this.selectedTower || this.selectedTower.isUtility) return;
         this.selectedTower.toggleOverclock();
+        this.recalculateAllEnemyPaths();
     }
 
     upgradeSelectedNormal() {
@@ -365,6 +375,7 @@ export class Game {
         this.gold -= cost;
         tower.upgradeNormal();
         this.soundManager.playBuild();
+        this.recalculateAllEnemyPaths();
         this.selectTower(tower);
     }
 
@@ -385,6 +396,7 @@ export class Game {
         this.gold -= cost;
         tower.upgradeBranch(branchKey);
         this.soundManager.playBuild();
+        this.recalculateAllEnemyPaths();
         this.selectTower(tower);
     }
 
@@ -392,10 +404,12 @@ export class Game {
         const tower = this.selectedTower;
         if (!tower) return;
 
-        const returnGold = Math.floor(tower.totalInvestedCost * 0.7);
+        // [P1/P2 수정] 안전한 골드 계산 및 isFinite 검증
+        const rawReturn = tower.getSellValue ? tower.getSellValue() : Math.floor((tower.totalInvestedCost || tower.cost) * 0.7);
+        const returnGold = Number.isFinite(rawReturn) ? rawReturn : 0;
+
         this.gold += returnGold;
 
-        // Remove tower
         const mound = this.mounds.find(m => m.col === tower.col && m.row === tower.row);
         if (mound) mound.towerInstalled = null;
 
@@ -404,6 +418,7 @@ export class Game {
 
         this.particleSystem.addFloatingText(tower.x, tower.y, `+${returnGold}G`, '#ffd166', 15);
         this.soundManager.playKill();
+        this.recalculateAllEnemyPaths();
         this.deselectTower();
     }
 
@@ -449,7 +464,6 @@ export class Game {
         let dt = (timestamp - this.lastTime) / 1000;
         this.lastTime = timestamp;
 
-        // Cap dt to prevent spiraling after tab switch
         dt = Math.min(dt, 0.1) * this.gameSpeed;
 
         if (!this.isGameOver) {
@@ -494,7 +508,6 @@ export class Game {
 
             if (!enemy.active) {
                 if (enemy.hp <= 0) {
-                    // Killed Reward
                     this.gold += enemy.reward;
                     this.totalKills++;
                     this.particleSystem.addFloatingText(enemy.x, enemy.y, `+${enemy.reward}G`, '#ffd166', 13);
@@ -523,10 +536,10 @@ export class Game {
         }
 
         // 8. Wave Clear Check
-        if (this.waveManager.isWaveActive && this.waveManager.spawnQueue.length === 0 && this.enemies.length === 0) {
+        if (this.waveManager.isWaveActive && this.spawnQueue.length === 0 && this.enemies.length === 0) {
             this.waveManager.isWaveActive = false;
             this.currentWaveNum++;
-            this.gold += 100; // Wave Clear Bonus
+            this.gold += 100;
             this.soundManager.playBuild();
             this.updateWavePreviewUI();
         }
@@ -536,19 +549,19 @@ export class Game {
     }
 
     updateHUDUI() {
-        document.getElementById('gold-val').innerText = Math.floor(this.gold);
+        // [P1/P2 수정] Gold 표시 시 isFinite 검증
+        document.getElementById('gold-val').innerText = Number.isFinite(this.gold) ? Math.floor(this.gold) : 0;
+
         let totalIncome = this.passiveIncomeRate;
         for (const t of this.towers) if (t.isUtility) totalIncome += t.incomePerSec;
         document.getElementById('income-val').innerText = `(+${totalIncome}/s)`;
 
         document.getElementById('wave-val').innerText = this.currentWaveNum;
 
-        // Base HP
         const hpPercent = (this.baseTower.hp / this.baseTower.maxHp) * 100;
         document.getElementById('base-hp-bar').style.width = `${hpPercent}%`;
         document.getElementById('base-hp-val').innerText = `${Math.ceil(this.baseTower.hp)} / ${this.baseTower.maxHp}`;
 
-        // Orbital Cooldown
         const cdElem = document.getElementById('orbital-cooldown');
         if (this.baseTower.orbitalCooldown > 0) {
             cdElem.innerText = `${Math.ceil(this.baseTower.orbitalCooldown)}s`;
@@ -558,7 +571,6 @@ export class Game {
             cdElem.style.color = '#00ffaa';
         }
 
-        // Selected Tower Overclock & Heat UI
         if (this.selectedTower && !this.selectedTower.isUtility) {
             const heatFill = document.getElementById('heat-bar-fill');
             const heatText = document.getElementById('heat-status-text');
@@ -588,34 +600,27 @@ export class Game {
     render() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // 1. Grid Background
         this.grid.render(this.ctx, this.hoverCell, this.selectedTower, this.threatMap);
 
-        // 2. Mounds
         for (const m of this.mounds) {
             m.render(this.ctx);
         }
 
-        // 3. Main Base Tower
         this.baseTower.render(this.ctx);
 
-        // 4. Towers & Utility Buildings
         for (const t of this.towers) {
             const isSel = this.selectedTower === t;
             t.render(this.ctx, isSel);
         }
 
-        // 5. Enemies
         for (const e of this.enemies) {
             e.render(this.ctx);
         }
 
-        // 6. Projectiles
         for (const p of this.projectiles) {
             p.render(this.ctx);
         }
 
-        // 7. Particle Effects
         this.particleSystem.render(this.ctx);
     }
 }

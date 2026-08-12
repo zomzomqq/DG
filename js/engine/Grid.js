@@ -39,8 +39,8 @@ export class Grid {
 
     isBlocked(col, row) {
         if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return true;
-        // 둔덕(1), 스폰(2), 메인베이스(3)는 적 이동 우회 대상
-        return this.cells[row][col] === 1 || this.cells[row][col] === 3;
+        // [P1 수정] 솟아오른 둔덕(1)만 적 우회 장애물. Base(3)와 Spawn(2)은 blocked가 아님!
+        return this.cells[row][col] === 1;
     }
 
     isMound(col, row) {
@@ -92,7 +92,7 @@ export class Grid {
                 ctx.lineWidth = 1;
                 ctx.strokeRect(x, y, this.cellSize, this.cellSize);
 
-                // Threat Map Heat Overlay (Optional Subtle Visual)
+                // Threat Map Heat Overlay
                 if (threatMap) {
                     const threat = threatMap.getThreatAt(c, r);
                     if (threat > 0) {

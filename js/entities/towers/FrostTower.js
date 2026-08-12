@@ -10,14 +10,23 @@ export class FrostTower extends Tower {
         this.slowDuration = CONFIG.TOWERS.frost.slowDuration;
     }
 
+    upgradeBranch(branchKey) {
+        const ok = super.upgradeBranch(branchKey);
+        if (ok) {
+            const spec = CONFIG.TOWERS.frost.upgrades.branches[branchKey];
+            if (spec.slowMult) {
+                this.slowAmount = Math.min(0.85, CONFIG.TOWERS.frost.slowAmount * spec.slowMult);
+            }
+        }
+        return ok;
+    }
+
     fire(enemyList, projectileList, particleSystem, soundManager) {
         soundManager.playShoot('frost');
 
-        const isBlizzard = this.branch === 'blizzard';
         const isCryo = this.branch === 'cryo';
-
-        const range = isBlizzard ? this.range * 1.5 : this.range;
-        const slow = isCryo ? 0.75 : (isBlizzard ? 0.5 : 0.4);
+        const range = this.range;
+        const slow = this.slowAmount;
 
         // Visual Frost Pulsing Ring Effect
         particleSystem.addShockwaveRing(this.x, this.y, range, 'rgba(0, 210, 255, 0.8)');
@@ -44,7 +53,6 @@ export class FrostTower extends Tower {
     renderTurret(ctx) {
         super.renderTurret(ctx);
 
-        // Frost Ice Crystal Top Animation
         ctx.fillStyle = '#00d2ff';
         ctx.beginPath();
         ctx.arc(0, 0, 10, 0, Math.PI * 2);
@@ -55,7 +63,6 @@ export class FrostTower extends Tower {
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // Pulsing Ice Crystal Aura
         ctx.strokeStyle = '#93c5fd';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
