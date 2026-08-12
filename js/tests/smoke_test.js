@@ -1,5 +1,6 @@
 // 타워 디펜스 게임 시스템 통합 스모크 테스트 (Automated Smoke Test Suite)
 
+import { CONFIG } from '../config.js';
 import { Grid } from '../engine/Grid.js';
 import { Pathfinder } from '../engine/Pathfinder.js';
 import { ThreatMap } from '../engine/ThreatMap.js';
@@ -11,6 +12,7 @@ import { soundManager } from '../engine/SoundManager.js';
 import { GatlingTower } from '../entities/towers/GatlingTower.js';
 import { CannonTower } from '../entities/towers/CannonTower.js';
 import { FrostTower } from '../entities/towers/FrostTower.js';
+import { WaveManager } from '../entities/WaveManager.js';
 import { Game } from '../engine/Game.js';
 
 export function runSmokeTests() {
@@ -190,6 +192,149 @@ export function runSmokeTests() {
         }
     } catch (e) {
         results.push({ name: "[P2/E2E] Strict Economy Playthrough", status: "ERROR", detail: e.stack || e.message });
+    }
+
+    // Test 8: Rendered canvas coordinates must map back to the internal grid.
+    try {
+        const game = new Game('game-canvas');
+        game.canvas = {
+            width: game.cols * game.cellSize,
+            height: game.rows * game.cellSize,
+            getBoundingClientRect: () => ({ left: 100, top: 50, width: 480, height: 280 })
+        };
+
+        const cell = game.getGridCellFromPointer({ clientX: 310, clientY: 200 });
+        if (cell?.col === 10 && cell?.row === 7) {
+            results.push({
+                name: "[P1] Scaled Canvas Pointer-to-Grid Mapping",
+                status: "PASS",
+                detail: `Pointer mapped to cell (${cell.col}, ${cell.row})`
+            });
+        } else {
+            throw new Error(`Expected cell (10, 7), received ${JSON.stringify(cell)}`);
+        }
+    } catch (e) {
+        results.push({ name: "[P1] Scaled Canvas Pointer-to-Grid Mapping", status: "ERROR", detail: e.stack || e.message });
+    }
+
+    // Test 9: Passive and generator income only accrues during an active wave.
+    try {
+        const game = new Game('game-canvas');
+        const initialGold = game.gold;
+
+        game.update(1);
+        const idleGold = game.gold;
+
+        game.waveManager.isWaveActive = true;
+        game.waveManager.spawnQueue = [{ type: 'basic', interval: 999, spawnIndex: 0, dueAt: 999 }];
+        game.waveManager.spawnElapsed = 0;
+        game.waveManager.spawnTimer = 999;
+        game.update(1);
+        const activeGold = game.gold;
+
+        if (idleGold === initialGold && activeGold === initialGold + game.passiveIncomeRate) {
+            results.push({
+                name: "[P1] Gold Income Only During Active Wave",
+                status: "PASS",
+                detail: `Idle: ${idleGold}G, Active after 1s: ${activeGold}G`
+            });
+        } else {
+            throw new Error(`Initial: ${initialGold}, idle: ${idleGold}, active: ${activeGold}`);
+        }
+    } catch (e) {
+        results.push({ name: "[P1] Gold Income Only During Active Wave", status: "ERROR", detail: e.stack || e.message });
+    }
+
+    // Test 10: Stage 2 unlocks a second entry and duplicates each wave unit there.
+    try {
+        const grid = new Grid(24, 14, 40);
+        const pathfinder = new Pathfinder(24, 14, 40);
+        const threatMap = new ThreatMap(24, 14, 40);
+        const waveManager = new WaveManager();
+        const enemies = [];
+        const recipe = waveManager.getWaveRecipe(11);
+        const singleEntryCount = recipe.groups.reduce((sum, group) => sum + group.count, 0);
+
+        waveManager.startWave(11, grid, pathfinder, threatMap, enemies);
+        const queuedCount = waveManager.spawnQueue.length;
+        waveManager.update(0.01, grid, pathfinder, threatMap, enemies);
+
+        const distinctEntryRows = new Set(enemies.map(enemy => enemy.y)).size;
+        if (
+            grid.activeSpawnCount === 2 &&
+            queuedCount === singleEntryCount * 2 &&
+            enemies.length === 2 &&
+            distinctEntryRows === 2
+        ) {
+            results.push({
+                name: "[P1] Stage 2 Dual Entry Doubles Wave Forces",
+                status: "PASS",
+                detail: `Entries: ${grid.activeSpawnCount}, queued: ${queuedCount}, simultaneous first spawn: ${enemies.length}`
+            });
+        } else {
+            throw new Error(`Entries: ${grid.activeSpawnCount}, queued: ${queuedCount}/${singleEntryCount * 2}, spawned: ${enemies.length}, rows: ${distinctEntryRows}`);
+        }
+    } catch (e) {
+        results.push({ name: "[P1] Stage 2 Dual Entry Doubles Wave Forces", status: "ERROR", detail: e.stack || e.message });
+    }
+
+    // Test 11: Clearing the boss wave immediately reveals the Stage 2 entry.
+    try {
+        const game = new Game('game-canvas');
+        game.currentWaveNum = 10;
+        game.waveManager.isWaveActive = true;
+        game.waveManager.spawnQueue = [];
+        game.enemies = [];
+
+        game.update(0);
+
+        if (game.currentWaveNum === 11 && game.grid.activeSpawnCount === 2) {
+            results.push({
+                name: "[P1] Boss Clear Activates Stage 2 Entry",
+                status: "PASS",
+                detail: "Wave 10 clear advanced to Wave 11 with two visible entries."
+            });
+        } else {
+            throw new Error(`Wave: ${game.currentWaveNum}, active entries: ${game.grid.activeSpawnCount}`);
+        }
+    } catch (e) {
+        results.push({ name: "[P1] Boss Clear Activates Stage 2 Entry", status: "ERROR", detail: e.stack || e.message });
+    }
+
+    // Test 12: Only an empty mound can be removed, and removal costs gold.
+    try {
+        const emptyGame = new Game('game-canvas');
+        const emptyMound = emptyGame.mounds.find(mound => mound.col === 6 && mound.row === 3);
+        const initialGold = emptyGame.gold;
+        emptyGame.selectMound(emptyMound);
+        const removed = emptyGame.removeSelectedMound();
+
+        const occupiedGame = new Game('game-canvas');
+        occupiedGame.tryBuildTower(6, 3, 'gatling');
+        const occupiedMound = occupiedGame.mounds.find(mound => mound.col === 6 && mound.row === 3);
+        const occupiedGold = occupiedGame.gold;
+        occupiedGame.selectedMound = occupiedMound;
+        const occupiedRemoved = occupiedGame.removeSelectedMound();
+
+        if (
+            removed &&
+            emptyGame.gold === initialGold - CONFIG.MOUND_REMOVE_COST &&
+            !emptyGame.grid.isMound(6, 3) &&
+            !emptyGame.mounds.includes(emptyMound) &&
+            !occupiedRemoved &&
+            occupiedGame.grid.isMound(6, 3) &&
+            occupiedGame.gold === occupiedGold
+        ) {
+            results.push({
+                name: "[P1] Paid Empty Mound Demolition",
+                status: "PASS",
+                detail: `Empty mound removed for ${CONFIG.MOUND_REMOVE_COST}G; occupied mound preserved without charge.`
+            });
+        } else {
+            throw new Error(`Removed: ${removed}, gold: ${emptyGame.gold}, occupied removed: ${occupiedRemoved}, occupied gold: ${occupiedGame.gold}/${occupiedGold}`);
+        }
+    } catch (e) {
+        results.push({ name: "[P1] Paid Empty Mound Demolition", status: "ERROR", detail: e.stack || e.message });
     }
 
     // Output Test Summary

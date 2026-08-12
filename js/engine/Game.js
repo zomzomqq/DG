@@ -58,6 +58,7 @@ export class Game {
         this.hoverCell = null;
         this.buildMode = null;
         this.selectedTower = null;
+        this.selectedMound = null;
 
         this.lastTime = 0;
         this.initMoundsFromGrid();
@@ -143,6 +144,9 @@ export class Game {
         const btnSell = document.getElementById('btn-sell-tower');
         if (btnSell) btnSell.addEventListener('click', () => this.sellSelectedTower());
 
+        const btnRemoveMound = document.getElementById('btn-remove-mound');
+        if (btnRemoveMound) btnRemoveMound.addEventListener('click', () => this.removeSelectedMound());
+
         const btnOverclock = document.getElementById('btn-overclock');
         if (btnOverclock) btnOverclock.addEventListener('click', () => this.toggleOverclockSelected());
 
@@ -177,25 +181,34 @@ export class Game {
         });
     }
 
-    onMouseMove(e) {
-        if (!this.canvas) return;
+    getGridCellFromPointer(e) {
+        if (!this.canvas) return null;
+
         const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        if (rect.width <= 0 || rect.height <= 0) return null;
 
-        const col = Math.floor(mouseX / this.cellSize);
-        const row = Math.floor(mouseY / this.cellSize);
+        // CSS can render the canvas at a different size from its internal
+        // 960x560 coordinate system. Convert display pixels back to canvas
+        // pixels before resolving the grid cell.
+        const canvasX = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+        const canvasY = (e.clientY - rect.top) * (this.canvas.height / rect.height);
+        const col = Math.floor(canvasX / this.cellSize);
+        const row = Math.floor(canvasY / this.cellSize);
 
-        if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
-            this.hoverCell = { col, row };
-        } else {
-            this.hoverCell = null;
-        }
+        if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return null;
+        return { col, row };
+    }
+
+    onMouseMove(e) {
+        this.hoverCell = this.getGridCellFromPointer(e);
     }
 
     onClick(e) {
-        if (!this.hoverCell) return;
-        const { col, row } = this.hoverCell;
+        const cell = this.getGridCellFromPointer(e);
+        if (!cell) return;
+
+        this.hoverCell = cell;
+        const { col, row } = cell;
 
         if (this.buildMode === 'orbital') {
             const worldPos = {
@@ -221,6 +234,8 @@ export class Game {
         const mound = this.mounds.find(m => m.col === col && m.row === row);
         if (mound && mound.towerInstalled) {
             this.selectTower(mound.towerInstalled);
+        } else if (mound) {
+            this.selectMound(mound);
         } else {
             this.deselectTower();
         }
@@ -238,13 +253,15 @@ export class Game {
             return false;
         }
 
-        const spawnPos = this.grid.getSpawnWorldPos();
+        const spawnPositions = this.grid.getSpawnWorldPositions(false);
         const basePos = this.grid.getBaseWorldPos();
 
-        const pathExists = this.pathfinder.hasValidPath(spawnPos, basePos, (c, r) => {
-            if (c === col && r === row) return true;
-            return this.grid.isBlocked(c, r);
-        });
+        const pathExists = spawnPositions.every(spawnPos => (
+            this.pathfinder.hasValidPath(spawnPos, basePos, (c, r) => {
+                if (c === col && r === row) return true;
+                return this.grid.isBlocked(c, r);
+            })
+        ));
 
         if (!pathExists) {
             this.particleSystem.addFloatingText(col * this.cellSize + 20, row * this.cellSize + 20, '🚫 경로 완막 불가!', '#ff4757', 14);
@@ -319,11 +336,70 @@ export class Game {
         }
     }
 
+    selectMound(mound) {
+        if (!mound || mound.towerInstalled) return false;
+
+        this.selectedTower = null;
+        this.selectedMound = mound;
+
+        const panel = document.getElementById('selected-panel');
+        if (!panel) return true;
+        panel.classList.remove('hidden');
+
+        const controlLabel = document.getElementById('sel-control-label');
+        if (controlLabel) controlLabel.innerText = 'TERRAIN CONTROL';
+
+        const elIcon = document.getElementById('sel-tower-icon');
+        if (elIcon) elIcon.innerText = '◇';
+
+        const elName = document.getElementById('sel-tower-name');
+        if (elName) elName.innerText = '전술 둔덕';
+
+        const elLvl = document.getElementById('sel-tower-lvl');
+        if (elLvl) elLvl.innerText = 'EMPTY';
+
+        const towerBody = document.getElementById('tower-control-body');
+        if (towerBody) towerBody.classList.add('hidden');
+
+        const moundBody = document.getElementById('mound-control-body');
+        if (moundBody) moundBody.classList.remove('hidden');
+
+        const btnSell = document.getElementById('btn-sell-tower');
+        if (btnSell) btnSell.classList.add('hidden');
+
+        const btnRemove = document.getElementById('btn-remove-mound');
+        if (btnRemove) btnRemove.classList.remove('hidden');
+
+        const cost = CONFIG.MOUND_REMOVE_COST;
+        const costBody = document.getElementById('remove-mound-cost');
+        if (costBody) costBody.innerText = cost;
+        const costFooter = document.getElementById('remove-mound-cost-footer');
+        if (costFooter) costFooter.innerText = cost;
+
+        return true;
+    }
+
     selectTower(tower) {
         this.selectedTower = tower;
+        this.selectedMound = null;
         const panel = document.getElementById('selected-panel');
         if (!panel) return;
         panel.classList.remove('hidden');
+
+        const controlLabel = document.getElementById('sel-control-label');
+        if (controlLabel) controlLabel.innerText = 'UNIT CONTROL';
+
+        const towerBody = document.getElementById('tower-control-body');
+        if (towerBody) towerBody.classList.remove('hidden');
+
+        const moundBody = document.getElementById('mound-control-body');
+        if (moundBody) moundBody.classList.add('hidden');
+
+        const btnSell = document.getElementById('btn-sell-tower');
+        if (btnSell) btnSell.classList.remove('hidden');
+
+        const btnRemove = document.getElementById('btn-remove-mound');
+        if (btnRemove) btnRemove.classList.add('hidden');
 
         const elIcon = document.getElementById('sel-tower-icon');
         if (elIcon) elIcon.innerText = tower.icon;
@@ -483,8 +559,38 @@ export class Game {
         this.deselectTower();
     }
 
+    removeSelectedMound() {
+        const mound = this.selectedMound;
+        if (!mound) return false;
+
+        if (mound.towerInstalled) {
+            this.particleSystem.addFloatingText(mound.x, mound.y, '건물을 먼저 해체하세요!', '#ff4757', 13);
+            return false;
+        }
+
+        const cost = CONFIG.MOUND_REMOVE_COST;
+        if (this.gold < cost) {
+            this.particleSystem.addFloatingText(mound.x, mound.y, '골드 부족!', '#ff4757', 14);
+            return false;
+        }
+
+        if (!this.grid.removeMound(mound.col, mound.row)) return false;
+
+        this.gold -= cost;
+        const moundIndex = this.mounds.indexOf(mound);
+        if (moundIndex !== -1) this.mounds.splice(moundIndex, 1);
+
+        this.particleSystem.addExplosion(mound.x, mound.y, '#ff9d66', 16, 4);
+        this.particleSystem.addFloatingText(mound.x, mound.y - 12, `-${cost} CR`, '#ff9d66', 14);
+        this.soundManager.playExplosion();
+        this.recalculateAllEnemyPaths();
+        this.deselectTower();
+        return true;
+    }
+
     deselectTower() {
         this.selectedTower = null;
+        this.selectedMound = null;
         const panel = document.getElementById('selected-panel');
         if (panel) panel.classList.add('hidden');
     }
@@ -497,12 +603,19 @@ export class Game {
 
     updateWavePreviewUI() {
         const recipe = this.waveManager.getWaveRecipe(this.currentWaveNum);
+        const stage = this.waveManager.getStageForWave(this.currentWaveNum);
+        const spawnCount = this.waveManager.getSpawnCountForWave(this.currentWaveNum);
 
         const elNum = document.getElementById('preview-wave-num');
-        if (elNum) elNum.innerText = `WAVE ${this.currentWaveNum}`;
+        if (elNum) elNum.innerText = `STAGE ${stage} · WAVE ${this.currentWaveNum}`;
 
         const elTip = document.getElementById('preview-tip-text');
-        if (elTip) elTip.innerText = recipe.tip;
+        if (elTip) {
+            const entryNotice = spawnCount > 1
+                ? `⚠️ 적 진입점 ${spawnCount}개 동시 가동 · 표시 병력 ${spawnCount}배. `
+                : '';
+            elTip.innerText = `${entryNotice}${recipe.tip}`;
+        }
 
         const container = document.getElementById('preview-enemy-list');
         if (container) {
@@ -512,7 +625,7 @@ export class Game {
                 const item = document.createElement('div');
                 item.className = 'preview-item';
                 item.innerHTML = `
-                    <span><strong style="color:${spec.color}">${spec.name}</strong> × ${grp.count}</span>
+                    <span><strong style="color:${spec.color}">${spec.name}</strong> × ${grp.count * spawnCount}</span>
                     <span class="hud-sub">HP: ${spec.hp} | SPD: ${spec.speed}</span>
                 `;
                 if (container.appendChild) container.appendChild(item);
@@ -549,11 +662,13 @@ export class Game {
 
     update(dt) {
         // 1. Passive & Generator Gold Production
-        let totalIncomeRate = this.passiveIncomeRate;
-        for (const t of this.towers) {
-            if (t.isUtility && t.active) totalIncomeRate += t.incomePerSec;
+        if (this.waveManager.isWaveActive) {
+            let totalIncomeRate = this.passiveIncomeRate;
+            for (const t of this.towers) {
+                if (t.isUtility && t.active) totalIncomeRate += t.incomePerSec;
+            }
+            this.gold += totalIncomeRate * dt;
         }
-        this.gold += totalIncomeRate * dt;
 
         // 2. Systems Update
         statusSystem.update(dt);
@@ -609,10 +724,22 @@ export class Game {
 
         // 8. Wave Clear Check [P1 2차 수정]: this.spawnQueue -> this.waveManager.spawnQueue 수정!
         if (this.waveManager.isWaveActive && this.waveManager.spawnQueue.length === 0 && this.enemies.length === 0) {
+            const clearedWaveNum = this.currentWaveNum;
             this.waveManager.isWaveActive = false;
             this.currentWaveNum++;
+            this.grid.setActiveSpawnCount(this.waveManager.getSpawnCountForWave(this.currentWaveNum));
             this.gold += 100;
             this.soundManager.playBuild();
+
+            if (clearedWaveNum === 10) {
+                const entries = this.grid.getSpawnWorldPositions();
+                for (const entry of entries) {
+                    this.particleSystem.addExplosion(entry.x, entry.y, '#ff5c4d', 20, 5);
+                }
+                const newEntry = entries[entries.length - 1];
+                this.particleSystem.addFloatingText(newEntry.x + 90, newEntry.y - 14, 'STAGE 2 · DUAL ENTRY ONLINE', '#ff7f73', 16);
+            }
+
             this.updateWavePreviewUI();
         }
 
@@ -624,8 +751,13 @@ export class Game {
         const elGold = document.getElementById('gold-val');
         if (elGold) elGold.innerText = Number.isFinite(this.gold) ? Math.floor(this.gold) : 0;
 
-        let totalIncome = this.passiveIncomeRate;
-        for (const t of this.towers) if (t.isUtility) totalIncome += t.incomePerSec;
+        let totalIncome = 0;
+        if (this.waveManager.isWaveActive) {
+            totalIncome = this.passiveIncomeRate;
+            for (const t of this.towers) {
+                if (t.isUtility && t.active) totalIncome += t.incomePerSec;
+            }
+        }
 
         const elInc = document.getElementById('income-val');
         if (elInc) elInc.innerText = `(+${totalIncome}/s)`;
@@ -690,8 +822,27 @@ export class Game {
 
         this.grid.render(this.ctx, this.hoverCell, this.selectedTower, this.threatMap);
 
+        // Visualize hostile navigation as a tactical route only while a wave is active.
+        if (this.waveManager.isWaveActive) {
+            const pathSource = this.enemies.find(enemy => enemy.active && enemy.path?.length > 1);
+            if (pathSource) {
+                this.ctx.save();
+                this.ctx.strokeStyle = 'rgba(255, 107, 95, 0.2)';
+                this.ctx.lineWidth = 1.2;
+                this.ctx.setLineDash([3, 9]);
+                this.ctx.beginPath();
+                this.ctx.moveTo(pathSource.x, pathSource.y);
+                for (let i = pathSource.pathIndex; i < pathSource.path.length; i++) {
+                    this.ctx.lineTo(pathSource.path[i].x, pathSource.path[i].y);
+                }
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+                this.ctx.restore();
+            }
+        }
+
         for (const m of this.mounds) {
-            m.render(this.ctx);
+            m.render(this.ctx, this.selectedMound === m);
         }
 
         this.baseTower.render(this.ctx);

@@ -1,6 +1,7 @@
 // 적 유닛 (Enemy) 기본 클래스 & 행동 특성 (Traits)
 import { CONFIG } from '../../config.js';
 import { statusSystem } from '../../engine/StatusEffectSystem.js';
+import { drawGlowOrb, drawSegmentedRing, drawTacticalBar, polygonPath } from '../../engine/CanvasArt.js';
 
 export class Enemy {
     constructor(type, path, worldPos) {
@@ -45,6 +46,7 @@ export class Enemy {
         this.active = true;
         this.currentSpeed = this.speed;
         this.gatlingHits = 0;
+        this.visualTimer = Math.random() * Math.PI * 2;
     }
 
     updatePath(newPath) {
@@ -107,6 +109,7 @@ export class Enemy {
     update(dt, gameEngine) {
         if (!this.active || this.hp <= 0) return;
 
+        this.visualTimer += dt;
         this.timeSinceLastHit += dt;
 
         // Regenerator Trait: 피격 후 3초 경과 시 회복
@@ -177,36 +180,148 @@ export class Enemy {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        ctx.fillStyle = this.color;
+        const pulse = Math.sin(this.visualTimer * 4) * 0.8;
+        const heading = this.path && this.pathIndex < this.path.length
+            ? Math.atan2(this.path[this.pathIndex].y - this.y, this.path[this.pathIndex].x - this.x)
+            : 0;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
         ctx.beginPath();
-        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+        ctx.ellipse(1, this.size * 0.55, this.size * 1.15, this.size * 0.48, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.rotate(heading);
+        this.renderUnitBody(ctx, pulse);
+        ctx.rotate(-heading);
 
         const statusShield = statusSystem.getEffectValue(this, 'Shield');
         if (this.shieldHp > 0 || statusShield > 0) {
-            ctx.strokeStyle = '#3498db';
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            ctx.arc(0, 0, this.size + 4, 0, Math.PI * 2);
-            ctx.stroke();
+            ctx.save();
+            ctx.rotate(this.visualTimer * 0.7);
+            drawSegmentedRing(ctx, 0, 0, this.size + 5 + pulse * 0.3, 6, '#72e7ff', 1.8, 0, 5);
+            ctx.restore();
         }
 
-        const barWidth = 24;
-        const barHeight = 4;
+        const barWidth = Math.max(24, this.size * 2.2);
+        const barHeight = 3;
         const hpPercent = this.hp / this.maxHp;
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(-barWidth / 2, -this.size - 10, barWidth, barHeight);
-
-        ctx.fillStyle = hpPercent > 0.5 ? '#2ecc71' : (hpPercent > 0.25 ? '#f1c40f' : '#e74c3c');
-        ctx.fillRect(-barWidth / 2, -this.size - 10, barWidth * hpPercent, barHeight);
+        const hpColor = hpPercent > 0.5 ? '#d7ff66' : (hpPercent > 0.25 ? '#ffd166' : '#ff6b5f');
+        drawTacticalBar(ctx, -barWidth / 2, -this.size - 11, barWidth, barHeight, hpPercent, hpColor);
 
         ctx.restore();
 
         statusSystem.renderTargetBadges(ctx, this);
+    }
+
+    renderUnitBody(ctx, pulse) {
+        const outline = '#f2b0a8';
+        const accent = this.color;
+        const size = this.size;
+
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#2b1719';
+
+        if (this.type === 'runner') {
+            ctx.fillStyle = '#302b16';
+            ctx.beginPath();
+            ctx.moveTo(size + 4, 0);
+            ctx.lineTo(-size * 0.55, -size * 0.72);
+            ctx.lineTo(-size * 0.25, 0);
+            ctx.lineTo(-size * 0.55, size * 0.72);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.strokeStyle = accent;
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.2, -size * 0.8);
+            ctx.lineTo(-size * 1.2, -size * 1.15);
+            ctx.moveTo(-size * 0.2, size * 0.8);
+            ctx.lineTo(-size * 1.2, size * 1.15);
+            ctx.stroke();
+        } else if (this.type === 'tank' || this.type === 'unstoppable') {
+            ctx.fillStyle = this.type === 'tank' ? '#2b1b31' : '#292d2e';
+            polygonPath(ctx, 0, 0, size, 8, Math.PI / 8, 0.82);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#101719';
+            ctx.fillRect(-size * 0.45, -size * 0.7, size * 0.9, size * 1.4);
+            ctx.strokeStyle = accent;
+            ctx.strokeRect(-size * 0.45, -size * 0.7, size * 0.9, size * 1.4);
+            ctx.fillStyle = accent;
+            ctx.fillRect(size * 0.25, -2, size * 0.9, 4);
+        } else if (this.type === 'shield') {
+            polygonPath(ctx, -1, 0, size, 6, 0, 0.9);
+            ctx.fillStyle = '#152d3a';
+            ctx.fill();
+            ctx.strokeStyle = '#72e7ff';
+            ctx.stroke();
+            ctx.strokeStyle = 'rgba(114, 231, 255, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(3, 0, size * 0.7, -Math.PI / 2, Math.PI / 2);
+            ctx.stroke();
+        } else if (this.type === 'swarm') {
+            ctx.fillStyle = '#382114';
+            polygonPath(ctx, 0, 0, size, 6, 0, 0.82);
+            ctx.fill();
+            ctx.stroke();
+            ctx.strokeStyle = accent;
+            for (const y of [-size * 0.65, 0, size * 0.65]) {
+                ctx.beginPath();
+                ctx.moveTo(-size * 0.3, y);
+                ctx.lineTo(-size * 1.25, y * 1.25);
+                ctx.moveTo(size * 0.25, y);
+                ctx.lineTo(size * 1.15, y * 1.2);
+                ctx.stroke();
+            }
+        } else if (this.type === 'regenerator') {
+            polygonPath(ctx, 0, 0, size, 6, Math.PI / 6, 0.95);
+            ctx.fillStyle = '#153126';
+            ctx.fill();
+            ctx.strokeStyle = '#73f0a6';
+            ctx.stroke();
+            ctx.strokeStyle = '#73f0a6';
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.45, 0);
+            ctx.lineTo(size * 0.45, 0);
+            ctx.moveTo(0, -size * 0.45);
+            ctx.lineTo(0, size * 0.45);
+            ctx.stroke();
+        } else if (this.type === 'splitter') {
+            polygonPath(ctx, 0, 0, size, 6, Math.PI / 6, 0.9);
+            ctx.fillStyle = '#123632';
+            ctx.fill();
+            ctx.strokeStyle = '#4ff0d0';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.55, -size * 0.55);
+            ctx.lineTo(size * 0.55, size * 0.55);
+            ctx.moveTo(size * 0.55, -size * 0.55);
+            ctx.lineTo(-size * 0.55, size * 0.55);
+            ctx.stroke();
+        } else if (this.type === 'engineer') {
+            polygonPath(ctx, 0, 0, size, 8, Math.PI / 8, 0.86);
+            ctx.fillStyle = '#352016';
+            ctx.fill();
+            ctx.strokeStyle = '#ff9d66';
+            ctx.stroke();
+            ctx.save();
+            ctx.rotate(this.visualTimer);
+            drawSegmentedRing(ctx, 0, 0, size * 0.75, 4, '#ffd166', 1.2, Math.PI / 4);
+            ctx.restore();
+        } else {
+            // Grunt body: directional assault drone.
+            ctx.fillStyle = '#32191c';
+            polygonPath(ctx, 0, 0, size, 6, 0, 0.85);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#101719';
+            ctx.fillRect(-size * 0.25, -size * 0.72, size * 0.52, size * 1.44);
+            ctx.fillStyle = accent;
+            ctx.fillRect(size * 0.45, -2, size * 0.78, 4);
+        }
+
+        drawGlowOrb(ctx, size * 0.12, 0, Math.max(1.4, size * 0.18 + pulse * 0.05), accent, '#fff4ee');
     }
 }

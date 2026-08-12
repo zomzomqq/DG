@@ -1,6 +1,7 @@
 // Grid Map 지형 및 셀 관리
 
 import { CONFIG } from '../config.js';
+import { drawCornerBrackets, drawSegmentedRing } from './CanvasArt.js';
 
 export class Grid {
     constructor(cols, rows, cellSize) {
@@ -11,8 +12,13 @@ export class Grid {
         // Cell Types: 0 = Flat Ground, 1 = Mound, 2 = Spawn, 3 = Base
         this.cells = Array(rows).fill(0).map(() => Array(cols).fill(0));
 
-        // Spawn Point & Base Point
-        this.spawnCell = { col: 1, row: 6 };
+        // Spawn Points & Base Point. The second entry stays hidden until Stage 2.
+        this.spawnCells = [
+            { col: 1, row: 6 },
+            { col: 1, row: 10 }
+        ];
+        this.spawnCell = this.spawnCells[0];
+        this.activeSpawnCount = 1;
         this.baseCell = { col: 22, row: 6 };
 
         this.initDefaultLayout();
@@ -20,7 +26,7 @@ export class Grid {
 
     initDefaultLayout() {
         // Spawn and Base Setup
-        this.cells[this.spawnCell.row][this.spawnCell.col] = 2;
+        this.setActiveSpawnCount(1);
         this.cells[this.baseCell.row][this.baseCell.col] = 3;
 
         // 초기 배치 둔덕(Mounds)
@@ -50,8 +56,13 @@ export class Grid {
 
     canPlaceMound(col, row) {
         if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) return false;
+        if (this.isReservedSpawnCell(col, row)) return false;
         // 평지(0)에만 둔덕 추가 건설 가능
         return this.cells[row][col] === 0;
+    }
+
+    isReservedSpawnCell(col, row) {
+        return this.spawnCells.some(cell => cell.col === col && cell.row === row);
     }
 
     setMound(col, row) {
@@ -62,10 +73,46 @@ export class Grid {
         return false;
     }
 
-    getSpawnWorldPos() {
+    removeMound(col, row) {
+        if (!this.isMound(col, row)) return false;
+        this.cells[row][col] = 0;
+        return true;
+    }
+
+    setActiveSpawnCount(count) {
+        const nextCount = Math.max(1, Math.min(this.spawnCells.length, Math.floor(count)));
+
+        for (let i = 0; i < this.spawnCells.length; i++) {
+            const cell = this.spawnCells[i];
+            if (i < nextCount) {
+                this.cells[cell.row][cell.col] = 2;
+            } else if (this.cells[cell.row][cell.col] === 2) {
+                this.cells[cell.row][cell.col] = 0;
+            }
+        }
+
+        this.activeSpawnCount = nextCount;
+    }
+
+    getSpawnWorldPositions(activeOnly = true) {
+        const cells = activeOnly
+            ? this.spawnCells.slice(0, this.activeSpawnCount)
+            : this.spawnCells;
+
+        return cells.map(cell => ({
+            x: cell.col * this.cellSize + this.cellSize / 2,
+            y: cell.row * this.cellSize + this.cellSize / 2
+        }));
+    }
+
+    getSpawnWorldPos(spawnIndex = 0) {
+        const activeCells = this.spawnCells.slice(0, this.activeSpawnCount);
+        const safeIndex = Math.max(0, Math.min(activeCells.length - 1, Math.floor(spawnIndex)));
+        const spawnCell = activeCells[safeIndex];
+
         return {
-            x: this.spawnCell.col * this.cellSize + this.cellSize / 2,
-            y: this.spawnCell.row * this.cellSize + this.cellSize / 2
+            x: spawnCell.col * this.cellSize + this.cellSize / 2,
+            y: spawnCell.row * this.cellSize + this.cellSize / 2
         };
     }
 
@@ -77,62 +124,111 @@ export class Grid {
     }
 
     render(ctx, hoverCell = null, selectedBuildingCell = null, threatMap = null) {
+        const width = this.cols * this.cellSize;
+        const height = this.rows * this.cellSize;
+
+        ctx.save();
+        ctx.fillStyle = '#081116';
+        ctx.fillRect(0, 0, width, height);
+
+        // Matte terrain tiles and subtle sector blocks.
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 const x = c * this.cellSize;
                 const y = r * this.cellSize;
                 const cellType = this.cells[r][c];
 
-                // 1. Base Grid Tiles
-                ctx.fillStyle = (r + c) % 2 === 0 ? '#111827' : '#0f172a';
+                const sectorShade = ((Math.floor(c / 4) + Math.floor(r / 4)) % 2) * 2;
+                ctx.fillStyle = (r + c) % 2 === 0
+                    ? `rgb(${10 + sectorShade}, ${21 + sectorShade}, ${27 + sectorShade})`
+                    : `rgb(${9 + sectorShade}, ${18 + sectorShade}, ${24 + sectorShade})`;
                 ctx.fillRect(x, y, this.cellSize, this.cellSize);
 
-                // Grid Border Line
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x, y, this.cellSize, this.cellSize);
-
-                // Threat Map Heat Overlay
                 if (threatMap) {
                     const threat = threatMap.getThreatAt(c, r);
                     if (threat > 0) {
-                        const alpha = Math.min(0.2, threat / 250);
-                        ctx.fillStyle = `rgba(255, 71, 87, ${alpha})`;
+                        const alpha = Math.min(0.16, threat / 340);
+                        ctx.fillStyle = `rgba(255, 92, 77, ${alpha})`;
                         ctx.fillRect(x, y, this.cellSize, this.cellSize);
                     }
                 }
 
-                // 2. Spawn Point Visual
                 if (cellType === 2) {
-                    ctx.fillStyle = 'rgba(231, 76, 60, 0.2)';
-                    ctx.fillRect(x, y, this.cellSize, this.cellSize);
-                    ctx.strokeStyle = '#e74c3c';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x + 2, y + 2, this.cellSize - 4, this.cellSize - 4);
-
-                    ctx.fillStyle = '#e74c3c';
-                    ctx.font = '10px Orbitron';
+                    const spawnIndex = this.spawnCells.findIndex(cell => cell.col === c && cell.row === r);
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255, 88, 72, 0.1)';
+                    ctx.fillRect(x + 2, y + 2, this.cellSize - 4, this.cellSize - 4);
+                    ctx.beginPath();
+                    ctx.rect(x + 3, y + 3, this.cellSize - 6, this.cellSize - 6);
+                    ctx.clip();
+                    ctx.strokeStyle = 'rgba(255, 88, 72, 0.22)';
+                    ctx.lineWidth = 3;
+                    for (let stripe = -this.cellSize; stripe < this.cellSize * 2; stripe += 9) {
+                        ctx.beginPath();
+                        ctx.moveTo(x + stripe, y + this.cellSize);
+                        ctx.lineTo(x + stripe + this.cellSize, y);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                    drawCornerBrackets(ctx, x + 3, y + 3, this.cellSize - 6, this.cellSize - 6, 9, '#ff6b5f', 1.5);
+                    ctx.fillStyle = '#ff7f73';
+                    ctx.font = '700 7px Rajdhani, sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('SPAWN', x + this.cellSize / 2, y + this.cellSize / 2 + 3);
+                    ctx.fillText(`ENTRY ${String.fromCharCode(65 + Math.max(0, spawnIndex))}`, x + this.cellSize / 2, y + this.cellSize / 2 + 2);
                 }
 
-                // 3. Main Base Cell Visual
                 if (cellType === 3) {
-                    ctx.fillStyle = 'rgba(0, 210, 255, 0.2)';
+                    ctx.fillStyle = 'rgba(114, 231, 255, 0.08)';
                     ctx.fillRect(x, y, this.cellSize, this.cellSize);
+                    drawSegmentedRing(ctx, x + this.cellSize / 2, y + this.cellSize / 2, 17, 8, 'rgba(114, 231, 255, 0.5)', 1.2, Math.PI / 8);
+                    drawCornerBrackets(ctx, x + 4, y + 4, this.cellSize - 8, this.cellSize - 8, 6, 'rgba(114, 231, 255, 0.65)', 1);
                 }
             }
         }
 
-        // Hover Effect
+        // Grid lines are rendered in two passes to avoid hundreds of state changes.
+        ctx.strokeStyle = 'rgba(164, 202, 187, 0.055)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let c = 0; c <= this.cols; c++) {
+            const x = c * this.cellSize + 0.5;
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+        }
+        for (let r = 0; r <= this.rows; r++) {
+            const y = r * this.cellSize + 0.5;
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+        }
+        ctx.stroke();
+
+        // Major sector guides.
+        ctx.strokeStyle = 'rgba(114, 231, 255, 0.075)';
+        ctx.setLineDash([2, 6]);
+        ctx.beginPath();
+        for (let c = 4; c < this.cols; c += 4) {
+            ctx.moveTo(c * this.cellSize, 0);
+            ctx.lineTo(c * this.cellSize, height);
+        }
+        for (let r = 4; r < this.rows; r += 4) {
+            ctx.moveTo(0, r * this.cellSize);
+            ctx.lineTo(width, r * this.cellSize);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
         if (hoverCell) {
             const hx = hoverCell.col * this.cellSize;
             const hy = hoverCell.row * this.cellSize;
-            ctx.fillStyle = 'rgba(0, 255, 170, 0.15)';
-            ctx.fillRect(hx, hy, this.cellSize, this.cellSize);
-            ctx.strokeStyle = '#00ffaa';
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(hx, hy, this.cellSize, this.cellSize);
+            ctx.fillStyle = 'rgba(215, 255, 102, 0.1)';
+            ctx.fillRect(hx + 1, hy + 1, this.cellSize - 2, this.cellSize - 2);
+            drawCornerBrackets(ctx, hx + 2, hy + 2, this.cellSize - 4, this.cellSize - 4, 10, '#d7ff66', 1.6);
+            ctx.fillStyle = 'rgba(215, 255, 102, 0.75)';
+            ctx.font = '700 6px Rajdhani, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${String(hoverCell.col).padStart(2, '0')}.${String(hoverCell.row).padStart(2, '0')}`, hx + this.cellSize - 4, hy + this.cellSize - 4);
         }
+
+        ctx.restore();
     }
 }

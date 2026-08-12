@@ -1,5 +1,6 @@
 // 둔덕 위 경제 시설 (골드 발전기 Generator) 클래스
 import { CONFIG } from '../config.js';
+import { drawGlowOrb, drawSegmentedRing, polygonPath } from '../engine/CanvasArt.js';
 
 export class Generator {
     constructor(col, row, cellSize) {
@@ -40,24 +41,43 @@ export class Generator {
         ctx.save();
         ctx.translate(this.x, this.y - off);
 
-        // 발전기 베이스
-        ctx.fillStyle = '#f1c40f';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.beginPath();
-        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.ellipse(0, 7, 16, 7, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 회전하는 에너지 링
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, 16, this.animAngle, this.animAngle + Math.PI * 1.2);
+        polygonPath(ctx, 0, 1, 14, 8, Math.PI / 8, 0.84);
+        const chassis = ctx.createLinearGradient(0, -13, 0, 13);
+        chassis.addColorStop(0, '#4a4734');
+        chassis.addColorStop(1, '#24291f');
+        ctx.fillStyle = chassis;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 209, 102, 0.62)';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
-        // 아이콘
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('⚡', 0, 0);
+        ctx.save();
+        ctx.rotate(this.animAngle);
+        drawSegmentedRing(ctx, 0, -1, 16, 6, '#ffd166', 1.6, 0, 4);
+        ctx.restore();
+
+        ctx.save();
+        ctx.rotate(-this.animAngle * 0.7);
+        drawSegmentedRing(ctx, 0, -1, 11, 4, 'rgba(215, 255, 102, 0.75)', 1.1, Math.PI / 4);
+        ctx.restore();
+
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(2, -9);
+        ctx.lineTo(-3, -1);
+        ctx.lineTo(2, -1);
+        ctx.lineTo(-2, 8);
+        ctx.lineTo(5, -2);
+        ctx.lineTo(0, -2);
+        ctx.closePath();
+        ctx.stroke();
+        drawGlowOrb(ctx, 0, -1, 2.5, '#ffd166');
 
         ctx.restore();
     }

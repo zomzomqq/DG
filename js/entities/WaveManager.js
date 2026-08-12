@@ -7,7 +7,17 @@ export class WaveManager {
         this.currentWave = 1;
         this.spawnQueue = [];
         this.spawnTimer = 0;
+        this.spawnElapsed = 0;
+        this.activeSpawnCount = 1;
         this.isWaveActive = false;
+    }
+
+    getStageForWave(waveNum) {
+        return waveNum > 10 ? 2 : 1;
+    }
+
+    getSpawnCountForWave(waveNum) {
+        return this.getStageForWave(waveNum) === 2 ? 2 : 1;
     }
 
     getWaveRecipe(waveNum) {
@@ -97,15 +107,26 @@ export class WaveManager {
         this.currentWave = waveNum;
         this.spawnQueue = [];
         this.isWaveActive = true;
+        this.spawnElapsed = 0;
+        this.activeSpawnCount = this.getSpawnCountForWave(waveNum);
+        grid.setActiveSpawnCount(this.activeSpawnCount);
 
         const recipe = this.getWaveRecipe(waveNum);
+        let dueAt = 0;
 
         for (const group of recipe.groups) {
             for (let i = 0; i < group.count; i++) {
-                this.spawnQueue.push({
-                    type: group.type,
-                    interval: group.interval
-                });
+                // Every active entry emits the same unit at the same time. Stage 2
+                // therefore doubles both throughput and the wave's total unit count.
+                for (let spawnIndex = 0; spawnIndex < this.activeSpawnCount; spawnIndex++) {
+                    this.spawnQueue.push({
+                        type: group.type,
+                        interval: group.interval,
+                        spawnIndex,
+                        dueAt
+                    });
+                }
+                dueAt += group.interval;
             }
         }
 
@@ -115,12 +136,11 @@ export class WaveManager {
     update(dt, grid, pathfinder, threatMap, enemyList) {
         if (!this.isWaveActive || this.spawnQueue.length === 0) return;
 
-        this.spawnTimer -= dt;
-        if (this.spawnTimer <= 0) {
+        this.spawnElapsed += dt;
+        while (this.spawnQueue.length > 0 && this.spawnQueue[0].dueAt <= this.spawnElapsed) {
             const nextItem = this.spawnQueue.shift();
-            this.spawnTimer = nextItem.interval;
 
-            const spawnPos = grid.getSpawnWorldPos();
+            const spawnPos = grid.getSpawnWorldPos(nextItem.spawnIndex);
             const basePos = grid.getBaseWorldPos();
 
             let aiLevel = 'normal';
@@ -136,7 +156,12 @@ export class WaveManager {
                 enemyObj = new Enemy(nextItem.type, path, spawnPos);
             }
 
+            enemyObj.spawnIndex = nextItem.spawnIndex;
             enemyList.push(enemyObj);
         }
+
+        this.spawnTimer = this.spawnQueue.length > 0
+            ? Math.max(0, this.spawnQueue[0].dueAt - this.spawnElapsed)
+            : 0;
     }
 }

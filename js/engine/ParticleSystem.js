@@ -105,33 +105,56 @@ export class ParticleSystem {
         // Render Laser Beams
         for (const b of this.beams) {
             ctx.globalAlpha = Math.max(0, b.alpha);
-            ctx.strokeStyle = b.color;
-            ctx.lineWidth = b.width;
+            ctx.globalCompositeOperation = 'lighter';
             ctx.shadowColor = b.color;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 14;
+            ctx.strokeStyle = b.color;
+            ctx.lineWidth = b.width + 4;
+            ctx.globalAlpha = Math.max(0, b.alpha * 0.16);
             ctx.beginPath();
             ctx.moveTo(b.x1, b.y1);
             ctx.lineTo(b.x2, b.y2);
             ctx.stroke();
+            ctx.globalAlpha = Math.max(0, b.alpha);
+            ctx.lineWidth = Math.max(1, b.width * 0.42);
+            ctx.stroke();
+            ctx.strokeStyle = '#effff7';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.globalCompositeOperation = 'source-over';
         }
 
         // Render Shockwave Rings
         for (const r of this.rings) {
             ctx.globalAlpha = Math.max(0, r.alpha);
             ctx.strokeStyle = r.color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2.2;
+            ctx.setLineDash([7, 5]);
+            ctx.lineDashOffset = -r.radius * 0.4;
             ctx.beginPath();
             ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.globalAlpha = Math.max(0, r.alpha * 0.36);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, Math.max(1, r.radius - 4), 0, Math.PI * 2);
             ctx.stroke();
         }
 
         // Render Particles
         for (const p of this.particles) {
             ctx.globalAlpha = Math.max(0, p.alpha);
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 6;
             ctx.fillStyle = p.color;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
             ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.shadowBlur = 0;
         }
 
         // Render Floating Texts
@@ -139,8 +162,11 @@ export class ParticleSystem {
             ctx.globalAlpha = Math.max(0, ft.alpha);
             ctx.font = `bold ${ft.fontSize}px Orbitron, sans-serif`;
             ctx.fillStyle = ft.color;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+            ctx.shadowBlur = 4;
             ctx.textAlign = 'center';
             ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.shadowBlur = 0;
         }
 
         ctx.restore();

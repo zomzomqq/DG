@@ -1,6 +1,7 @@
 // 지켜야 하는 메인 타워 (Main Base) 클래스
 import { CONFIG } from '../config.js';
 import { Projectile } from './Projectile.js';
+import { drawBolts, drawGlowOrb, drawSegmentedRing, polygonPath } from '../engine/CanvasArt.js';
 
 export class BaseTower {
     constructor(col, row, cellSize) {
@@ -98,24 +99,76 @@ export class BaseTower {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Base Protective Aura / Ring
-        ctx.strokeStyle = 'rgba(0, 210, 255, 0.5)';
-        ctx.lineWidth = 2;
+        const pulse = Math.sin(this.animTimer * 3.2);
+        const hpRatio = this.hp / this.maxHp;
+        const coreColor = hpRatio > 0.5 ? '#d7ff66' : (hpRatio > 0.25 ? '#ffd166' : '#ff6b5f');
+
+        // Ground beacon and shield telemetry.
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
         ctx.beginPath();
-        ctx.arc(0, 0, 20 + Math.sin(this.animTimer * 4) * 2, 0, Math.PI * 2);
+        ctx.ellipse(0, 13, 25, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.rotate(this.animTimer * 0.18);
+        drawSegmentedRing(ctx, 0, 0, 24 + pulse, 12, 'rgba(114, 231, 255, 0.58)', 1.5, 0);
+        ctx.restore();
+
+        ctx.save();
+        ctx.rotate(-this.animTimer * 0.26);
+        drawSegmentedRing(ctx, 0, 0, 19, 6, 'rgba(215, 255, 102, 0.44)', 1.1, Math.PI / 6, Math.max(1, Math.ceil(hpRatio * 6)));
+        ctx.restore();
+
+        // Layered command citadel.
+        polygonPath(ctx, 0, 4, 18, 8, Math.PI / 8, 0.82);
+        ctx.fillStyle = '#071318';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(114, 231, 255, 0.34)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        // Main Fortress Structure
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(-16, -16, 32, 32);
-        ctx.strokeStyle = '#00d2ff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(-16, -16, 32, 32);
+        polygonPath(ctx, 0, -1, 15, 8, Math.PI / 8, 0.82);
+        const armor = ctx.createLinearGradient(0, -16, 0, 14);
+        armor.addColorStop(0, '#34505a');
+        armor.addColorStop(0.5, '#182e36');
+        armor.addColorStop(1, '#0e2026');
+        ctx.fillStyle = armor;
+        ctx.fill();
+        ctx.strokeStyle = '#72e7ff';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        drawBolts(ctx, 11, 4, '#8ba2a6', 1.1);
 
-        // Core Neon Crystal
-        ctx.fillStyle = '#00ffaa';
+        // Four defensive pylons.
+        ctx.fillStyle = '#1b343d';
+        ctx.strokeStyle = 'rgba(114, 231, 255, 0.65)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+            const angle = Math.PI / 4 + i * Math.PI / 2;
+            const px = Math.cos(angle) * 13;
+            const py = Math.sin(angle) * 10;
+            ctx.fillRect(px - 2.5, py - 4, 5, 8);
+            ctx.strokeRect(px - 2.5, py - 4, 5, 8);
+        }
+
+        // Animated reactor core.
+        ctx.shadowColor = coreColor;
+        ctx.shadowBlur = 12 + pulse * 2;
+        polygonPath(ctx, 0, -2, 7, 6, Math.PI / 6, 0.95);
+        ctx.fillStyle = coreColor;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        drawGlowOrb(ctx, 0, -2, 3.2, coreColor);
+
+        // Self-defense emitter.
+        ctx.fillStyle = '#0b171c';
+        ctx.strokeStyle = '#72e7ff';
+        ctx.lineWidth = 1;
+        ctx.fillRect(-3, -17, 6, 10);
+        ctx.strokeRect(-3, -17, 6, 10);
+        ctx.fillStyle = coreColor;
         ctx.beginPath();
-        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.arc(0, -18, 2, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();

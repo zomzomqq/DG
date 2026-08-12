@@ -1,6 +1,7 @@
 // 보스 유닛 (Siege Walker Boss) & 4-Phase System
 import { Enemy } from './Enemy.js';
 import { statusSystem } from '../../engine/StatusEffectSystem.js';
+import { drawSegmentedRing, polygonPath } from '../../engine/CanvasArt.js';
 
 export class BossEnemy extends Enemy {
     constructor(path, worldPos) {
@@ -65,13 +66,22 @@ export class BossEnemy extends Enemy {
         super.render(ctx);
         if (!this.active || this.hp <= 0) return;
 
-        // Phase Crown Overlay
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.font = 'bold 12px Orbitron, sans-serif';
-        ctx.fillStyle = '#ff4757';
+        ctx.save();
+        ctx.rotate(this.visualTimer * (this.phase >= 4 ? 1.2 : 0.45));
+        drawSegmentedRing(ctx, 0, 0, this.size + 8, 12, this.phase >= 4 ? '#ff6b5f' : '#ff9d66', 2, 0, 8 + this.phase);
+        ctx.restore();
+
+        polygonPath(ctx, 0, 0, this.size * 0.74, 8, Math.PI / 8, 0.86);
+        ctx.strokeStyle = this.phase >= 4 ? '#ff6b5f' : '#ffc0a8';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        ctx.font = '700 8px Orbitron, sans-serif';
+        ctx.fillStyle = '#ff8c80';
         ctx.textAlign = 'center';
-        ctx.fillText(`P${this.phase} BOSS`, 0, -this.size - 18);
+        ctx.fillText(`P${this.phase} · SIEGE`, 0, -this.size - 17);
         ctx.restore();
     }
 }

@@ -10,6 +10,7 @@ export const CONFIG = {
     INITIAL_GOLD: 500,
     PASSIVE_GOLD_RATE: 5, // 1초당 5 골드 기본 자연 수급
     MOUND_BUILD_COST: 150, // 둔덕 1개 신규 설치 비용
+    MOUND_REMOVE_COST: 50, // 비어 있는 둔덕 1개 해체 비용
     
     // Main Base Tower Stats
     BASE_TOWER: {

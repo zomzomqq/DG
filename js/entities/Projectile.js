@@ -1,6 +1,7 @@
 // 투사체 (Projectile) 클래스
 import { SynergySystem } from '../engine/SynergySystem.js';
 import { statusSystem } from '../engine/StatusEffectSystem.js';
+import { drawGlowOrb, polygonPath } from '../engine/CanvasArt.js';
 
 export class Projectile {
     constructor(params) {
@@ -133,13 +134,46 @@ export class Projectile {
         if (!this.active || this.isBeam) return;
 
         ctx.save();
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.translate(this.x, this.y);
+        const angle = Math.atan2(this.targetPos.y - this.y, this.targetPos.x - this.x);
+        ctx.rotate(angle);
 
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 8;
+        ctx.globalCompositeOperation = 'lighter';
+        const trail = ctx.createLinearGradient(-18, 0, 4, 0);
+        trail.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        trail.addColorStop(1, this.color);
+        ctx.fillStyle = trail;
+
+        if (this.type === 'cannon' || this.type === 'cluster') {
+            ctx.beginPath();
+            ctx.moveTo(-16, 0);
+            ctx.lineTo(-4, -3);
+            ctx.lineTo(3, -3);
+            ctx.lineTo(6, 0);
+            ctx.lineTo(3, 3);
+            ctx.lineTo(-4, 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            polygonPath(ctx, 2, 0, this.radius + 1, 6, 0, 0.85);
+            ctx.fillStyle = '#20272a';
+            ctx.fill();
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            drawGlowOrb(ctx, 3, 0, 2, this.color);
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(-15, -1.5);
+            ctx.lineTo(3, -1.5);
+            ctx.lineTo(6, 0);
+            ctx.lineTo(3, 1.5);
+            ctx.lineTo(-15, 1.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            drawGlowOrb(ctx, 4, 0, this.radius * 0.7, this.color);
+        }
         ctx.restore();
     }
 }

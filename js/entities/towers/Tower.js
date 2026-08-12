@@ -2,6 +2,7 @@
 import { CONFIG } from '../../config.js';
 import { TargetingStrategy } from '../../ai/TargetingStrategy.js';
 import { statusSystem } from '../../engine/StatusEffectSystem.js';
+import { drawBolts, drawCornerBrackets, drawSegmentedRing, polygonPath } from '../../engine/CanvasArt.js';
 
 export class Tower {
     constructor(col, row, type, cellSize) {
@@ -153,35 +154,73 @@ export class Tower {
         ctx.translate(this.x, this.y - off);
 
         if (isSelected) {
-            ctx.strokeStyle = 'rgba(0, 210, 255, 0.4)';
-            ctx.lineWidth = 1.5;
+            ctx.fillStyle = 'rgba(114, 231, 255, 0.025)';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.range, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(114, 231, 255, 0.42)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 7]);
             ctx.beginPath();
             ctx.arc(0, 0, this.range, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.setLineDash([]);
 
-            ctx.fillStyle = 'rgba(0, 210, 255, 0.05)';
-            ctx.fill();
+            drawSegmentedRing(ctx, 0, 0, 22, 8, '#d7ff66', 1.4, -Math.PI / 8);
+            drawCornerBrackets(ctx, -19, -19, 38, 38, 6, '#72e7ff', 1.2);
         }
 
         this.renderTurret(ctx);
 
-        if (statusSystem.hasEffect(this, 'Overheat')) {
-            ctx.font = '14px sans-serif';
+        if (statusSystem.hasEffect(this, 'Overheat') || statusSystem.hasEffect(this, 'EMP')) {
+            const isEmp = statusSystem.hasEffect(this, 'EMP');
+            ctx.fillStyle = isEmp ? 'rgba(170, 100, 255, 0.16)' : 'rgba(255, 107, 95, 0.16)';
+            ctx.strokeStyle = isEmp ? '#b47cff' : '#ff6b5f';
+            ctx.lineWidth = 1;
+            ctx.fillRect(-13, -29, 26, 9);
+            ctx.strokeRect(-13, -29, 26, 9);
+            ctx.fillStyle = isEmp ? '#d8b9ff' : '#ff9d91';
+            ctx.font = '700 6px Rajdhani, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('🔥', 0, -22);
-        } else if (statusSystem.hasEffect(this, 'EMP')) {
-            ctx.font = '14px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('⚡', 0, -22);
+            ctx.fillText(isEmp ? 'EMP LOCK' : 'OVERHEAT', 0, -22.5);
         }
 
         ctx.restore();
     }
 
     renderTurret(ctx) {
-        ctx.fillStyle = '#334155';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.36)';
         ctx.beginPath();
-        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.ellipse(0, 7, 17, 7, 0, 0, Math.PI * 2);
         ctx.fill();
+
+        polygonPath(ctx, 0, 1, 15, 8, Math.PI / 8, 0.82);
+        const chassis = ctx.createLinearGradient(0, -14, 0, 14);
+        chassis.addColorStop(0, '#455e66');
+        chassis.addColorStop(0.55, '#233a42');
+        chassis.addColorStop(1, '#11262c');
+        ctx.fillStyle = chassis;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(199, 229, 218, 0.36)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        polygonPath(ctx, 0, -2, 10, 8, Math.PI / 8, 0.88);
+        ctx.fillStyle = '#0b181d';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(114, 231, 255, 0.22)';
+        ctx.stroke();
+        drawBolts(ctx, 11, 4, '#81959b', 1, Math.PI / 4);
+
+        const levelColor = this.level === 3 ? '#d7ff66' : (this.level === 2 ? '#72e7ff' : 'rgba(190, 216, 208, 0.48)');
+        ctx.strokeStyle = levelColor;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < this.level; i++) {
+            ctx.moveTo(-5 + i * 5, 10);
+            ctx.lineTo(-2 + i * 5, 10);
+        }
+        ctx.stroke();
     }
 }

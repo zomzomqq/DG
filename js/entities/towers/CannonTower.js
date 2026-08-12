@@ -2,6 +2,7 @@
 import { Tower } from './Tower.js';
 import { Projectile } from '../Projectile.js';
 import { CONFIG } from '../../config.js';
+import { drawGlowOrb, polygonPath } from '../../engine/CanvasArt.js';
 
 export class CannonTower extends Tower {
     constructor(col, row, cellSize) {
@@ -47,24 +48,51 @@ export class CannonTower extends Tower {
     renderTurret(ctx) {
         super.renderTurret(ctx);
 
+        const accent = this.branch === 'siege' ? '#ff6b5f' : (this.branch === 'cluster' ? '#ffd166' : '#ff9d66');
+
+        ctx.save();
         ctx.rotate(this.rotation);
 
-        ctx.fillStyle = '#475569';
+        polygonPath(ctx, 0, -1, 9.5, 8, Math.PI / 8, 0.88);
+        ctx.fillStyle = '#303b3e';
+        ctx.fill();
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
         if (this.branch === 'siege') {
-            ctx.fillRect(2, -7, 24, 14);
-            ctx.fillStyle = '#ff4757';
-            ctx.fillRect(22, -8, 5, 16);
+            ctx.fillStyle = '#313538';
+            ctx.fillRect(2, -7, 23, 14);
+            ctx.strokeStyle = accent;
+            ctx.strokeRect(2, -7, 23, 14);
+            ctx.fillStyle = '#9aa4a3';
+            ctx.fillRect(14, -4, 16, 8);
+            ctx.fillStyle = accent;
+            ctx.fillRect(26, -7, 5, 14);
         } else if (this.branch === 'cluster') {
-            ctx.fillRect(2, -6, 20, 12);
-            ctx.fillStyle = '#ffd166';
-            ctx.fillRect(18, -7, 4, 14);
+            ctx.fillStyle = '#333c3e';
+            ctx.fillRect(2, -7, 20, 14);
+            ctx.strokeStyle = accent;
+            ctx.strokeRect(2, -7, 20, 14);
+            ctx.fillStyle = accent;
+            for (const y of [-4, 0, 4]) {
+                ctx.beginPath();
+                ctx.arc(21, y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
         } else {
-            ctx.fillRect(2, -5, 18, 10);
+            ctx.fillStyle = '#34474d';
+            ctx.fillRect(2, -6, 18, 12);
+            ctx.strokeStyle = accent;
+            ctx.strokeRect(2, -6, 18, 12);
+            ctx.fillStyle = '#82959a';
+            ctx.fillRect(14, -3, 12, 6);
+            ctx.fillStyle = accent;
+            ctx.fillRect(24, -4, 4, 8);
         }
 
-        ctx.fillStyle = this.isOverclocked ? '#ff4757' : '#ff7f50';
-        ctx.beginPath();
-        ctx.arc(0, 0, 9, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.restore();
+
+        drawGlowOrb(ctx, 0, -1, this.isOverclocked ? 4 : 3.2, this.isOverclocked ? '#ff4757' : accent);
     }
 }

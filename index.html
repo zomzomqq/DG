@@ -3,232 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tactical Mound Defense - 엘리트 타워 디펜스</title>
+    <meta name="theme-color" content="#080d0e">
+    <title>Tactical Mound Defense — 전술 지휘 콘솔</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="ambient-grid" aria-hidden="true"></div>
+
     <div id="game-container">
-        <!-- Top Navigation / HUD Bar -->
-        <header id="hud-bar" class="glass-panel">
-            <div class="hud-group">
-                <div class="hud-item">
-                    <span class="hud-icon">💰</span>
+        <header id="hud-bar" class="command-bar">
+            <div class="brand-block">
+                <div class="brand-mark" aria-hidden="true">
+                    <span>TM</span>
+                </div>
+                <div class="brand-copy">
+                    <span class="eyebrow">FRONTIER DEFENSE NETWORK</span>
+                    <h1>TACTICAL <span>MOUND</span></h1>
+                </div>
+                <div class="system-status"><i></i> SYSTEM ONLINE</div>
+            </div>
+
+            <div class="hud-metrics" aria-label="전투 현황">
+                <div class="hud-item hud-gold">
+                    <div class="hud-symbol" aria-hidden="true">G</div>
                     <div class="hud-info">
-                        <span class="hud-label">GOLD</span>
-                        <span id="gold-val" class="hud-value highlight-gold">500</span>
-                        <span id="income-val" class="hud-sub">(+5/s)</span>
+                        <span class="hud-label">TREASURY</span>
+                        <div class="hud-value-row">
+                            <span id="gold-val" class="hud-value highlight-gold" aria-live="polite">500</span>
+                            <span class="hud-unit">CR</span>
+                        </div>
+                        <span id="income-val" class="hud-sub">+5 / SEC</span>
                     </div>
                 </div>
-                <div class="hud-item">
-                    <span class="hud-icon">🏰</span>
+
+                <div class="hud-item hud-base">
                     <div class="hud-info">
-                        <span class="hud-label">BASE HP</span>
-                        <div class="hp-bar-container">
-                            <div id="base-hp-bar" class="hp-bar-fill"></div>
+                        <div class="metric-heading">
+                            <span class="hud-label">CORE INTEGRITY</span>
                             <span id="base-hp-val" class="hp-text">100 / 100</span>
+                        </div>
+                        <div class="hp-bar-container" aria-label="기지 체력">
+                            <div id="base-hp-bar" class="hp-bar-fill"></div>
+                            <div class="hp-segments" aria-hidden="true"></div>
                         </div>
                     </div>
                 </div>
+
+                <div class="hud-item hud-wave">
+                    <span class="hud-label">ACTIVE WAVE</span>
+                    <div class="wave-readout"><span class="wave-prefix">W</span><span id="wave-val" class="hud-value">01</span></div>
+                </div>
             </div>
 
-            <div class="hud-title">
-                <h1>TACTICAL <span class="neon-text">MOUND</span> DEFENSE</h1>
-            </div>
-
-            <div class="hud-group">
-                <div class="hud-item">
-                    <span class="hud-icon">⚔️</span>
-                    <div class="hud-info">
-                        <span class="hud-label">WAVE</span>
-                        <span id="wave-val" class="hud-value">1</span>
-                    </div>
-                </div>
-                <div class="hud-controls">
-                    <button id="btn-speed" class="btn btn-secondary">⚡ 1x</button>
-                    <button id="btn-sound" class="btn btn-secondary">🔊 ON</button>
-                </div>
+            <div class="hud-controls" aria-label="게임 설정">
+                <button id="btn-speed" class="btn hud-control" type="button" aria-label="게임 속도 변경">⚡ 1x</button>
+                <button id="btn-sound" class="btn hud-control" type="button" aria-label="사운드 켜기 또는 끄기">🔊 ON</button>
             </div>
         </header>
 
-        <!-- Main Game Area -->
         <main id="main-area">
-            <!-- Left Control & Build Sidebar -->
-            <aside id="left-sidebar" class="glass-panel">
-                <section class="panel-section">
-                    <h3>🛠️ 둔덕 경로 설계</h3>
-                    <div class="mound-build-box">
-                        <button id="btn-build-mound" class="btn btn-action btn-mound">
-                            <div class="btn-content">
-                                <span class="btn-title">⛰️ 둔덕 신규 건설</span>
-                                <span class="btn-cost">💰 <span id="mound-cost">150</span> Gold</span>
-                            </div>
-                        </button>
-                        <p class="mound-hint">둔덕을 배치하여 적의 이동 경로를 우회시키세요! (경로 완막 불가)</p>
+            <aside id="left-sidebar" class="command-panel">
+                <div class="sidebar-header">
+                    <div>
+                        <span class="eyebrow">ASSET DEPLOYMENT</span>
+                        <h2>BUILD SYSTEM</h2>
                     </div>
+                    <span class="panel-index">01</span>
+                </div>
+
+                <section class="panel-section mound-section">
+                    <div class="section-heading">
+                        <div>
+                            <span class="section-number">01</span>
+                            <h3>경로 설계</h3>
+                        </div>
+                        <span class="section-status">PATHING</span>
+                    </div>
+                    <button id="btn-build-mound" class="btn btn-action btn-mound" type="button">
+                        <span class="mound-glyph" aria-hidden="true">
+                            <svg viewBox="0 0 48 48" role="img"><path d="M7 35 19 18l6 8 5-6 11 15H7Z"/><path d="M16 35h18"/></svg>
+                        </span>
+                        <span class="btn-content">
+                            <span class="btn-kicker">TERRAIN CONTROL</span>
+                            <span class="btn-title">둔덕 신규 건설</span>
+                        </span>
+                        <span class="cost-chip"><b id="mound-cost">150</b><small>CR</small></span>
+                    </button>
+                    <p class="mound-hint">적의 진입로를 재설계합니다. 완전 봉쇄는 허용되지 않습니다.</p>
                 </section>
 
-                <section class="panel-section">
-                    <h3>🏗️ 타워 및 시설 건설</h3>
-                    <p class="section-hint">※ 솟아오른 둔덕 위에만 설치 가능</p>
+                <section class="panel-section tower-section">
+                    <div class="section-heading">
+                        <div>
+                            <span class="section-number">02</span>
+                            <h3>전술 유닛</h3>
+                        </div>
+                        <span class="section-status">MOUND ONLY</span>
+                    </div>
                     <div id="tower-cards" class="tower-cards-grid">
-                        <div class="tower-card" data-tower-type="gatling">
-                            <div class="card-icon gatling-icon">🔫</div>
-                            <div class="card-details">
-                                <div class="card-name">가틀링 타워</div>
-                                <div class="card-desc">고속 단일 연사 사격</div>
-                                <div class="card-cost">💰 100 G</div>
-                            </div>
-                        </div>
-                        <div class="tower-card" data-tower-type="cannon">
-                            <div class="card-icon cannon-icon">💣</div>
-                            <div class="card-details">
-                                <div class="card-name">캐논 타워</div>
-                                <div class="card-desc">범위 폭발 스플래시</div>
-                                <div class="card-cost">💰 175 G</div>
-                            </div>
-                        </div>
-                        <div class="tower-card" data-tower-type="frost">
-                            <div class="card-icon frost-icon">❄️</div>
-                            <div class="card-details">
-                                <div class="card-name">프로스트 타워</div>
-                                <div class="card-desc">광역 이동속도 둔화</div>
-                                <div class="card-cost">💰 150 G</div>
-                            </div>
-                        </div>
-                        <div class="tower-card utility-card" data-tower-type="generator">
-                            <div class="card-icon generator-icon">⚡</div>
-                            <div class="card-details">
-                                <div class="card-name">골드 발전기</div>
-                                <div class="card-desc">초당 +3 골드 추가 생산</div>
-                                <div class="card-cost">💰 200 G</div>
-                            </div>
-                        </div>
+                        <button class="tower-card" style="--tower-accent:#d7ff66" data-tower-type="gatling" type="button">
+                            <span class="card-topline"><span class="card-index">A1</span><span class="card-cost">100 <small>CR</small></span></span>
+                            <span class="card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 48"><path d="M10 20h19l7 5-7 5H10z"/><path d="M16 30v7h8l3-7M29 22l8-5M29 28l8 5"/></svg>
+                            </span>
+                            <span class="card-details">
+                                <span class="card-name">가틀링</span>
+                                <span class="card-desc">RAPID / SINGLE</span>
+                            </span>
+                        </button>
+
+                        <button class="tower-card" style="--tower-accent:#ff9d66" data-tower-type="cannon" type="button">
+                            <span class="card-topline"><span class="card-index">A2</span><span class="card-cost">175 <small>CR</small></span></span>
+                            <span class="card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 48"><path d="M10 20h22v11H10z"/><path d="M32 23h8v5h-8M16 31l-4 7M27 31l4 7"/><circle cx="21" cy="25.5" r="3"/></svg>
+                            </span>
+                            <span class="card-details">
+                                <span class="card-name">캐논</span>
+                                <span class="card-desc">HEAVY / SPLASH</span>
+                            </span>
+                        </button>
+
+                        <button class="tower-card" style="--tower-accent:#72e7ff" data-tower-type="frost" type="button">
+                            <span class="card-topline"><span class="card-index">A3</span><span class="card-cost">150 <small>CR</small></span></span>
+                            <span class="card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 48"><path d="M24 8v32M10 16l28 16M10 32l28-16M19 12l5 5 5-5M19 36l5-5 5 5"/></svg>
+                            </span>
+                            <span class="card-details">
+                                <span class="card-name">프로스트</span>
+                                <span class="card-desc">SLOW / CONTROL</span>
+                            </span>
+                        </button>
+
+                        <button class="tower-card utility-card" style="--tower-accent:#ffd166" data-tower-type="generator" type="button">
+                            <span class="card-topline"><span class="card-index">U1</span><span class="card-cost">200 <small>CR</small></span></span>
+                            <span class="card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 48 48"><path d="m27 6-14 22h10l-2 14 14-23H25z"/></svg>
+                            </span>
+                            <span class="card-details">
+                                <span class="card-name">발전기</span>
+                                <span class="card-desc">INCOME / +3 SEC</span>
+                            </span>
+                        </button>
                     </div>
                 </section>
 
-                <!-- Active Base Skills -->
-                <section class="panel-section">
-                    <h3>🚀 메인 타워 지원</h3>
-                    <button id="btn-orbital-strike" class="btn btn-danger btn-skill">
-                        <div class="skill-info">
-                            <span class="skill-name">🛰️ Orbital Strike</span>
-                            <span class="skill-desc">지정 구역 초고화력 궤도 폭격</span>
+                <section class="panel-section support-section">
+                    <div class="section-heading">
+                        <div>
+                            <span class="section-number">03</span>
+                            <h3>궤도 지원</h3>
                         </div>
+                        <span class="section-status danger">HIGH IMPACT</span>
+                    </div>
+                    <button id="btn-orbital-strike" class="btn btn-danger btn-skill" type="button">
+                        <span class="orbital-icon" aria-hidden="true">
+                            <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="7"/><path d="M24 4v10M24 34v10M4 24h10M34 24h10M10 10l7 7M31 31l7 7M38 10l-7 7M17 31l-7 7"/></svg>
+                        </span>
+                        <span class="skill-info">
+                            <span class="skill-name">ORBITAL STRIKE</span>
+                            <span class="skill-desc">지정 구역 초고화력 포격</span>
+                        </span>
                         <span id="orbital-cooldown" class="skill-cd">READY</span>
                     </button>
                 </section>
             </aside>
 
-            <!-- Center Canvas Container -->
-            <section id="canvas-container">
+            <section id="canvas-container" aria-label="전술 전장">
+                <div class="battlefield-meta" aria-hidden="true">
+                    <span class="live-indicator"><i></i> LIVE FEED</span>
+                    <span>SECTOR 07-A</span>
+                    <span>GRID 24 × 14</span>
+                </div>
                 <canvas id="game-canvas"></canvas>
+                <div class="field-corners" aria-hidden="true"></div>
+                <div class="field-hint" aria-hidden="true"><kbd>LMB</kbd> 배치 / 선택 <span></span> <kbd>ESC</kbd> 취소</div>
 
-                <!-- Wave Start / Wave Preview Overlay -->
                 <div id="wave-preview-overlay" class="glass-overlay">
                     <div class="overlay-header">
-                        <h2>NEXT WAVE PREVIEW</h2>
-                        <span id="preview-wave-num" class="wave-tag">WAVE 1</span>
+                        <div>
+                            <span class="eyebrow">INCOMING HOSTILES</span>
+                            <h2>NEXT WAVE</h2>
+                        </div>
+                        <span id="preview-wave-num" class="wave-tag">WAVE 01</span>
                     </div>
-                    <div id="preview-enemy-list" class="enemy-preview-list">
-                        <!-- Dynamic Populated -->
-                    </div>
+                    <div class="threat-divider"><span>THREAT MANIFEST</span><i></i></div>
+                    <div id="preview-enemy-list" class="enemy-preview-list"></div>
                     <div class="preview-synergy-tip">
-                        💡 <strong>전술 팁:</strong> <span id="preview-tip-text">프로스트로 적을 모은 후 캐논 스플래시로 일살하세요!</span>
+                        <span class="tip-mark">TACTICAL NOTE</span>
+                        <span id="preview-tip-text">프로스트로 적을 모은 후 캐논 스플래시로 일살하세요!</span>
                     </div>
-                    <button id="btn-start-wave" class="btn btn-primary btn-large glow-pulse">⚔️ WAVE START</button>
+                    <button id="btn-start-wave" class="btn btn-primary btn-large glow-pulse" type="button">
+                        <span>ENGAGE WAVE</span><b>→</b>
+                    </button>
                 </div>
 
-                <!-- Selected Tower Control Panel Overlay -->
                 <div id="selected-panel" class="glass-overlay-panel hidden">
                     <div class="panel-header">
                         <div class="t-title-box">
-                            <span id="sel-tower-icon" class="t-icon">🔫</span>
+                            <span id="sel-tower-icon" class="t-icon">●</span>
                             <div>
+                                <span id="sel-control-label" class="eyebrow">UNIT CONTROL</span>
                                 <h3 id="sel-tower-name">가틀링 타워</h3>
-                                <span id="sel-tower-lvl" class="lvl-badge">Lv. 1</span>
                             </div>
+                            <span id="sel-tower-lvl" class="lvl-badge">LV. 1</span>
                         </div>
-                        <button id="btn-close-panel" class="btn-close">✕</button>
+                        <button id="btn-close-panel" class="btn-close" type="button" aria-label="타워 패널 닫기">×</button>
                     </div>
 
-                    <div class="panel-body">
-                        <!-- Stats Grid -->
+                    <div id="tower-control-body" class="panel-body">
                         <div class="stat-grid">
-                            <div class="stat-item"><span class="s-label">데미지:</span> <span id="sel-dmg" class="s-val">15</span></div>
-                            <div class="stat-item"><span class="s-label">공속:</span> <span id="sel-spd" class="s-val">6.0/s</span></div>
-                            <div class="stat-item"><span class="s-label">사거리:</span> <span id="sel-rng" class="s-val">150</span></div>
-                            <div class="stat-item"><span class="s-label">타겟팅:</span> 
+                            <div class="stat-item"><span class="s-label">DAMAGE</span><span id="sel-dmg" class="s-val">15</span></div>
+                            <div class="stat-item"><span class="s-label">FIRE RATE</span><span id="sel-spd" class="s-val">6.0/s</span></div>
+                            <div class="stat-item"><span class="s-label">RANGE</span><span id="sel-rng" class="s-val">150</span></div>
+                            <label class="stat-item targeting"><span class="s-label">TARGETING</span>
                                 <select id="sel-target-strategy" class="select-style">
-                                    <option value="First">First (최근접)</option>
-                                    <option value="Last">Last (최후방)</option>
-                                    <option value="Strongest">Strongest (최고HP)</option>
-                                    <option value="Weakest">Weakest (최저HP)</option>
-                                    <option value="Fastest">Fastest (최고속도)</option>
+                                    <option value="First">First / 최근접</option>
+                                    <option value="Last">Last / 최후방</option>
+                                    <option value="Strongest">Strongest / 최고 HP</option>
+                                    <option value="Weakest">Weakest / 최저 HP</option>
+                                    <option value="Fastest">Fastest / 최고 속도</option>
                                 </select>
-                            </div>
+                            </label>
                         </div>
 
-                        <!-- Heat & Overclock Bar (Attack Towers only) -->
                         <div id="overclock-section" class="overclock-box">
                             <div class="heat-header">
-                                <span>🔥 Heat Gauge</span>
+                                <span>REACTOR HEAT</span>
                                 <span id="heat-status-text">NORMAL</span>
                             </div>
-                            <div class="heat-bar-track">
-                                <div id="heat-bar-fill" class="heat-bar-fill"></div>
-                            </div>
-                            <button id="btn-overclock" class="btn btn-warning btn-sm">⚡ OVERCLOCK (+60% DPS)</button>
+                            <div class="heat-bar-track"><div id="heat-bar-fill" class="heat-bar-fill"></div></div>
+                            <button id="btn-overclock" class="btn btn-warning btn-sm" type="button">OVERCLOCK <span>+60% DPS</span></button>
                         </div>
 
-                        <!-- Branch Upgrades Section -->
                         <div id="upgrade-section" class="upgrade-box">
-                            <h4>전술 업그레이드</h4>
-                            <!-- Normal Upgrade (Lv1 -> Lv2) -->
-                            <button id="btn-upgrade-normal" class="btn btn-success btn-block">
-                                ⬆️ 레벨 2 강화 (💰 <span id="normal-upgrade-cost">80</span> Gold)
+                            <div class="upgrade-heading"><span>UNIT EVOLUTION</span><small>CHOOSE LOADOUT</small></div>
+                            <button id="btn-upgrade-normal" class="btn btn-success btn-block" type="button">
+                                <span>LEVEL 2 강화</span><b><span id="normal-upgrade-cost">80</span> CR</b>
                             </button>
-
-                            <!-- Branch Upgrades (Lv2 -> Lv3 Specialization) -->
                             <div id="branch-upgrade-container" class="branch-container hidden">
                                 <div class="branch-card" id="branch-opt-1">
+                                    <span class="branch-code">PATH A</span>
                                     <h5 id="branch-1-title">Minigun</h5>
                                     <p id="branch-1-desc">초고속 지속사격, 단일 보스/탱커 특화</p>
-                                    <button id="btn-branch-1" class="btn btn-accent btn-sm">선택 (💰 <span id="branch-1-cost">200</span>G)</button>
+                                    <button id="btn-branch-1" class="btn btn-accent btn-sm" type="button">선택 · <span id="branch-1-cost">200</span> CR</button>
                                 </div>
                                 <div class="branch-card" id="branch-opt-2">
+                                    <span class="branch-code">PATH B</span>
                                     <h5 id="branch-2-title">Railgun</h5>
                                     <p id="branch-2-desc">직선 관통 빔, 일직선 다수 유닛 섬멸</p>
-                                    <button id="btn-branch-2" class="btn btn-accent btn-sm">선택 (💰 <span id="branch-2-cost">200</span>G)</button>
+                                    <button id="btn-branch-2" class="btn btn-accent btn-sm" type="button">선택 · <span id="branch-2-cost">200</span> CR</button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="mound-control-body" class="panel-body hidden">
+                        <div class="mound-control-box">
+                            <span class="mound-control-code">TERRAIN RECLAMATION</span>
+                            <p>비어 있는 둔덕을 해체해 해당 구역을 다시 평지로 복구합니다.</p>
+                            <div class="mound-control-cost">
+                                <span>DEMOLITION COST</span>
+                                <b><span id="remove-mound-cost">50</span> CR</b>
                             </div>
                         </div>
                     </div>
 
                     <div class="panel-footer">
-                        <button id="btn-sell-tower" class="btn btn-danger btn-sm">💸 건물 판매 (💰 +<span id="sell-gold-val">50</span>G)</button>
+                        <button id="btn-sell-tower" class="btn btn-sell btn-sm" type="button">건물 해체 <span>+<b id="sell-gold-val">50</b> CR</span></button>
+                        <button id="btn-remove-mound" class="btn btn-demolish btn-sm hidden" type="button">둔덕 해체 <span>−<b id="remove-mound-cost-footer">50</b> CR</span></button>
                     </div>
                 </div>
             </section>
         </main>
     </div>
 
-    <!-- Game Over / Victory Modal -->
     <div id="game-over-modal" class="modal-overlay hidden">
-        <div class="modal-content glass-panel">
+        <div class="modal-content command-panel">
+            <span class="modal-code">CORE SIGNAL LOST</span>
             <h2 id="modal-title">GAME OVER</h2>
             <p id="modal-desc">메인 타워가 파괴되었습니다.</p>
             <div class="modal-stats">
-                <div>최종 웨이브: <span id="final-wave" class="neon-text">0</span></div>
-                <div>처치한 적: <span id="final-kills" class="neon-text">0</span></div>
+                <div><span>FINAL WAVE</span><b id="final-wave">0</b></div>
+                <div><span>HOSTILES DOWN</span><b id="final-kills">0</b></div>
             </div>
-            <button id="btn-restart" class="btn btn-primary btn-large">🔄 다시 도전하기</button>
+            <button id="btn-restart" class="btn btn-primary btn-large" type="button"><span>RESTART OPERATION</span><b>↻</b></button>
         </div>
     </div>
 
-    <!-- Main Module Script -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
