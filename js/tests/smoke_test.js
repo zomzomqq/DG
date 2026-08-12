@@ -91,18 +91,16 @@ export function runSmokeTests() {
         results.push({ name: "[P2] Splitter Death & Mini Swarm Spawn", status: "ERROR", detail: e.message });
     }
 
-    // Test 5: Gatling vs Cannon Overclock Heat Rate Consistency (P2 Fix Verification)
+    // Test 5: Gatling vs Cannon Overclock Heat Rate Consistency
     try {
         const gatling = new GatlingTower(1, 1, 40);
         const cannon = new CannonTower(1, 2, 40);
         gatling.toggleOverclock();
         cannon.toggleOverclock();
 
-        // 1.0 second update
         gatling.update(1.0, [], [], { addBeam: () => {}, addExplosion: () => {}, addShockwaveRing: () => {}, addFloatingText: () => {} }, soundManager);
         cannon.update(1.0, [], [], { addBeam: () => {}, addExplosion: () => {}, addShockwaveRing: () => {}, addFloatingText: () => {} }, soundManager);
 
-        // Heat rate expected: gatling.heatIncrease(8) * 3.5 = 28, cannon.heatIncrease(12) * 3.5 = 42
         if (Math.abs(gatling.heat - 28) < 1 && Math.abs(cannon.heat - 42) < 1) {
             results.push({ name: "[P2] Gatling Heat Rate Consistency (Single Call)", status: "PASS", detail: `Gatling heat: ${gatling.heat.toFixed(1)}, Cannon heat: ${cannon.heat.toFixed(1)}` });
         } else {
@@ -131,61 +129,58 @@ export function runSmokeTests() {
         results.push({ name: "[P2] Engineer Shield Buff Absorption", status: "ERROR", detail: e.message });
     }
 
-    // Test 7: [ENHANCED FULL E2E INTEGRATION TEST] Full Wave Progression & Enemy Movement Verification
+    // Test 7: [P2 4차 보강] E2E Wave 1 & Wave 2 Complete Playthrough (currentWaveNum === 3 검증)
     try {
         const game = new Game('game-canvas');
         
-        // 1. Build a mound and towers
+        // Build defense towers
         game.tryBuildMound(5, 5);
         game.tryBuildTower(6, 3, 'gatling');
         game.tryBuildTower(6, 4, 'cannon');
+        game.tryBuildTower(11, 8, 'frost');
         game.tryBuildTower(17, 3, 'generator');
 
-        // 2. Start Wave 1
+        // Upgrade Gatling & Cannon for Wave 2
+        game.towers[0].upgradeNormal(); // Gatling Lv2
+        game.towers[1].upgradeNormal(); // Cannon Lv2
+
+        // Start Wave 1
         game.startNextWave();
-        const spawnPos = game.grid.getSpawnWorldPos();
 
-        let enemyMoved = false;
-        let spawnQueueEmptied = false;
-        let waveCleared = false;
+        let wave1Cleared = false;
+        let wave2Cleared = false;
 
-        // Run Game loop until Wave 1 is completely spawned and cleared (up to 800 ticks = 80s)
-        for (let tick = 0; tick < 800; tick++) {
+        // Run Game loop through Wave 1 and Wave 2 (up to 1500 ticks)
+        for (let tick = 0; tick < 1500; tick++) {
             game.update(0.1);
 
-            // Verify Enemy movement from Spawn position
-            if (game.enemies.length > 0) {
-                const firstEnemy = game.enemies[0];
-                if (Math.hypot(firstEnemy.x - spawnPos.x, firstEnemy.y - spawnPos.y) > 10) {
-                    enemyMoved = true;
-                }
+            if (game.currentWaveNum === 2 && !wave1Cleared) {
+                wave1Cleared = true;
+                // Automatically start Wave 2 when Wave 1 clears
+                game.startNextWave();
             }
 
-            if (game.waveManager.spawnQueue.length === 0) {
-                spawnQueueEmptied = true;
-            }
-
-            if (game.currentWaveNum === 2) {
-                waveCleared = true;
+            if (game.currentWaveNum === 3) {
+                wave2Cleared = true;
                 break;
             }
         }
 
-        if (enemyMoved && spawnQueueEmptied && waveCleared && Number.isFinite(game.gold)) {
+        if (wave1Cleared && wave2Cleared && !game.isGameOver && Number.isFinite(game.gold)) {
             results.push({ 
-                name: "[P1/E2E] Full Game Playthrough (Wave 1 Spawn->Move->Clear->Wave 2)", 
+                name: "[P2/E2E] Full Playthrough (Wave 1 & Wave 2 Clear -> Wave 3 Transition)", 
                 status: "PASS", 
-                detail: `Enemies moved: true, SpawnQueue emptied: true, Wave 1 Cleared -> Wave 2 Active! Gold: ${Math.floor(game.gold)}G` 
+                detail: `Wave 1 Cleared: true, Wave 2 Cleared: true -> Wave 3 Active! Gold: ${Math.floor(game.gold)}G, Base HP: ${game.baseTower.hp}` 
             });
         } else {
             results.push({ 
-                name: "[P1/E2E] Full Game Playthrough (Wave 1 Spawn->Move->Clear->Wave 2)", 
+                name: "[P2/E2E] Full Playthrough (Wave 1 & Wave 2 Clear -> Wave 3 Transition)", 
                 status: "FAIL", 
-                detail: `Moved: ${enemyMoved}, QueueEmptied: ${spawnQueueEmptied}, WaveCleared: ${waveCleared}` 
+                detail: `Wave1Cleared: ${wave1Cleared}, Wave2Cleared: ${wave2Cleared}, WaveNum: ${game.currentWaveNum}` 
             });
         }
     } catch (e) {
-        results.push({ name: "[P1/E2E] Full Game Playthrough", status: "ERROR", detail: e.stack || e.message });
+        results.push({ name: "[P2/E2E] Full Playthrough", status: "ERROR", detail: e.stack || e.message });
     }
 
     // Output Test Summary

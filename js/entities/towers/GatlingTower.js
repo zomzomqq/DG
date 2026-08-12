@@ -12,7 +12,6 @@ export class GatlingTower extends Tower {
     upgradeBranch(branchKey) {
         const ok = super.upgradeBranch(branchKey);
         if (ok) {
-            // [P3 3차 수정] 분기 변경 시 예열 스택 초기화
             this.targetStack = 0;
             this.lastTargetId = null;
         }
@@ -20,9 +19,10 @@ export class GatlingTower extends Tower {
     }
 
     update(dt, enemyList, projectileList, particleSystem, soundManager) {
-        // [P2 3차 수정] 중복 this.updateHeat(dt) 호출 제거! (부모 super.update에서 1회만 수행)
-        
-        // [P3 3차 수정] Minigun 분기일 때만 targetStack 예열 스택 동작
+        // [P3 4차 수정] 부모 update를 먼저 수행하여 이번 프레임의 this.target을 먼저 갱신
+        super.update(dt, enemyList, projectileList, particleSystem, soundManager);
+
+        // Minigun 분기일 때만 이번 프레임의 타겟 기준으로 targetStack 예열 스택 계산
         if (this.branch === 'minigun') {
             if (this.target) {
                 if (this.lastTargetId === this.target.id) {
@@ -38,8 +38,6 @@ export class GatlingTower extends Tower {
             this.targetStack = 0;
             this.lastTargetId = null;
         }
-
-        super.update(dt, enemyList, projectileList, particleSystem, soundManager);
     }
 
     fire(enemyList, projectileList, particleSystem, soundManager) {
@@ -48,7 +46,6 @@ export class GatlingTower extends Tower {
         const isRailgun = this.branch === 'railgun';
         const isMinigun = this.branch === 'minigun';
 
-        // Minigun 분기 시 스택에 의한 공속 가속 연사
         const stackSpeedBonus = isMinigun ? (1 + (this.targetStack / 10) * 0.8) : 1.0;
         const currentSpeed = (this.isOverclocked ? this.attackSpeed * 1.6 : this.attackSpeed) * stackSpeedBonus;
         

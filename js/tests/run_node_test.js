@@ -1,4 +1,5 @@
 import { runSmokeTests } from './smoke_test.js';
+import { runHttpSmokeCheck } from './http_smoke_test.js';
 
 if (typeof window === 'undefined') {
     class MockElement {
@@ -55,13 +56,18 @@ if (typeof window === 'undefined') {
     };
 }
 
-const results = runSmokeTests();
-const hasFailures = results.some(r => r.status !== 'PASS');
+async function main() {
+    const httpOk = await runHttpSmokeCheck();
+    const results = runSmokeTests();
+    const hasFailures = results.some(r => r.status !== 'PASS') || !httpOk;
 
-if (hasFailures) {
-    console.error("❌ Smoke Tests Failed!");
-    process.exit(1);
-} else {
-    console.log("✅ ALL SMOKE TESTS PASSED SUCCESSFULLY!");
-    process.exit(0);
+    if (hasFailures) {
+        console.error("❌ Smoke Tests Failed!");
+        process.exit(1);
+    } else {
+        console.log("✅ ALL SMOKE TESTS & HTTP ESM CHECKS PASSED SUCCESSFULLY!");
+        process.exit(0);
+    }
 }
+
+main();
