@@ -91,16 +91,28 @@ export function runSmokeTests() {
         results.push({ name: "[P2] Splitter Death & Mini Swarm Spawn", status: "ERROR", detail: e.message });
     }
 
-    // Test 5: SoundManager init sequence
+    // Test 5: Gatling vs Cannon Overclock Heat Rate Consistency (P2 Fix Verification)
     try {
-        soundManager.init();
-        soundManager.playBuild();
-        results.push({ name: "[P2] SoundManager Init Sequence", status: "PASS", detail: "Sound calls executed cleanly." });
+        const gatling = new GatlingTower(1, 1, 40);
+        const cannon = new CannonTower(1, 2, 40);
+        gatling.toggleOverclock();
+        cannon.toggleOverclock();
+
+        // 1.0 second update
+        gatling.update(1.0, [], [], { addBeam: () => {}, addExplosion: () => {}, addShockwaveRing: () => {}, addFloatingText: () => {} }, soundManager);
+        cannon.update(1.0, [], [], { addBeam: () => {}, addExplosion: () => {}, addShockwaveRing: () => {}, addFloatingText: () => {} }, soundManager);
+
+        // Heat rate expected: gatling.heatIncrease(8) * 3.5 = 28, cannon.heatIncrease(12) * 3.5 = 42
+        if (Math.abs(gatling.heat - 28) < 1 && Math.abs(cannon.heat - 42) < 1) {
+            results.push({ name: "[P2] Gatling Heat Rate Consistency (Single Call)", status: "PASS", detail: `Gatling heat: ${gatling.heat.toFixed(1)}, Cannon heat: ${cannon.heat.toFixed(1)}` });
+        } else {
+            results.push({ name: "[P2] Gatling Heat Rate Consistency (Single Call)", status: "FAIL", detail: `Double heat bug detected! Gatling heat: ${gatling.heat}, Cannon heat: ${cannon.heat}` });
+        }
     } catch (e) {
-        results.push({ name: "[P2] SoundManager Init Sequence", status: "ERROR", detail: e.message });
+        results.push({ name: "[P2] Gatling Heat Rate Consistency (Single Call)", status: "ERROR", detail: e.message });
     }
 
-    // Test 6: Engineer Shield Buff Damage Absorption
+    // Test 6: Engineer Shield Buff Absorption
     try {
         const enemy = new Enemy('basic', [{ x: 0, y: 0 }], { x: 0, y: 0 });
         statusSystem.applyEffect(enemy, 'Shield', 5.0, 50);
@@ -119,39 +131,61 @@ export function runSmokeTests() {
         results.push({ name: "[P2] Engineer Shield Buff Absorption", status: "ERROR", detail: e.message });
     }
 
-    // Test 7: [FULL E2E INTEGRATION TEST] Game.startNextWave -> Game.update Loop (Catches P1 spawnQueue crash & Full Flow)
+    // Test 7: [ENHANCED FULL E2E INTEGRATION TEST] Full Wave Progression & Enemy Movement Verification
     try {
         const game = new Game('game-canvas');
         
-        // 1. Build a mound and tower
+        // 1. Build a mound and towers
         game.tryBuildMound(5, 5);
         game.tryBuildTower(6, 3, 'gatling');
         game.tryBuildTower(6, 4, 'cannon');
-        game.tryBuildTower(11, 8, 'frost');
         game.tryBuildTower(17, 3, 'generator');
 
         // 2. Start Wave 1
         game.startNextWave();
-        if (!game.waveManager.isWaveActive) {
-            throw new Error("Wave failed to activate!");
-        }
+        const spawnPos = game.grid.getSpawnWorldPos();
 
-        // 3. Run Game.update() for 300 ticks (simulating 30 seconds of gameplay)
-        let crashed = false;
-        let spawnedEnemyCount = 0;
+        let enemyMoved = false;
+        let spawnQueueEmptied = false;
+        let waveCleared = false;
 
-        for (let tick = 0; tick < 300; tick++) {
+        // Run Game loop until Wave 1 is completely spawned and cleared (up to 800 ticks = 80s)
+        for (let tick = 0; tick < 800; tick++) {
             game.update(0.1);
-            if (game.enemies.length > 0) spawnedEnemyCount++;
+
+            // Verify Enemy movement from Spawn position
+            if (game.enemies.length > 0) {
+                const firstEnemy = game.enemies[0];
+                if (Math.hypot(firstEnemy.x - spawnPos.x, firstEnemy.y - spawnPos.y) > 10) {
+                    enemyMoved = true;
+                }
+            }
+
+            if (game.waveManager.spawnQueue.length === 0) {
+                spawnQueueEmptied = true;
+            }
+
+            if (game.currentWaveNum === 2) {
+                waveCleared = true;
+                break;
+            }
         }
 
-        if (spawnedEnemyCount > 0 && !game.isGameOver && Number.isFinite(game.gold)) {
-            results.push({ name: "[P1/E2E] Full Game Update Loop & Wave 1 Flow", status: "PASS", detail: `300 ticks updated cleanly. Enemies spawned: ${spawnedEnemyCount}, Gold: ${Math.floor(game.gold)}` });
+        if (enemyMoved && spawnQueueEmptied && waveCleared && Number.isFinite(game.gold)) {
+            results.push({ 
+                name: "[P1/E2E] Full Game Playthrough (Wave 1 Spawn->Move->Clear->Wave 2)", 
+                status: "PASS", 
+                detail: `Enemies moved: true, SpawnQueue emptied: true, Wave 1 Cleared -> Wave 2 Active! Gold: ${Math.floor(game.gold)}G` 
+            });
         } else {
-            results.push({ name: "[P1/E2E] Full Game Update Loop & Wave 1 Flow", status: "FAIL", detail: "Wave 1 flow did not spawn enemies or updated improperly." });
+            results.push({ 
+                name: "[P1/E2E] Full Game Playthrough (Wave 1 Spawn->Move->Clear->Wave 2)", 
+                status: "FAIL", 
+                detail: `Moved: ${enemyMoved}, QueueEmptied: ${spawnQueueEmptied}, WaveCleared: ${waveCleared}` 
+            });
         }
     } catch (e) {
-        results.push({ name: "[P1/E2E] Full Game Update Loop & Wave 1 Flow", status: "ERROR", detail: e.stack || e.message });
+        results.push({ name: "[P1/E2E] Full Game Playthrough", status: "ERROR", detail: e.stack || e.message });
     }
 
     // Output Test Summary
