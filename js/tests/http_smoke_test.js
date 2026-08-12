@@ -1,4 +1,4 @@
-// HTTP 로컬 서버 기반 브라우저/네트워크 모듈 스모크 검증기
+// HTTP 로컬 서버 기반 정적 자산 및 ESM 모듈 제공 스모크 검증기
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -9,8 +9,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../../');
 
 export function runHttpSmokeCheck() {
-    return new Promise((resolve, reject) => {
-        // Create local HTTP server for testing
+    return new Promise((resolve) => {
         const server = http.createServer((req, res) => {
             let reqPath = req.url === '/' ? '/index.html' : req.url;
             const filePath = path.join(rootDir, reqPath);
@@ -32,7 +31,7 @@ export function runHttpSmokeCheck() {
         });
 
         server.listen(8088, async () => {
-            console.log("🌐 Testing HTTP Server Localhost ESM Module Loading on port 8088...");
+            console.log("🌐 Testing HTTP Static Asset & ESM Server Smoke Check on port 8088...");
             try {
                 // Check index.html
                 const indexRes = await fetch('http://localhost:8088/index.html');
@@ -51,10 +50,10 @@ export function runHttpSmokeCheck() {
                 server.close();
 
                 if (indexOk && mainOk && configOk) {
-                    console.log("✅ HTTP Localhost ESM Module Server Check PASSED!");
+                    console.log("✅ HTTP Static Asset & ESM Server Smoke Check PASSED!");
                     resolve(true);
                 } else {
-                    console.error("❌ HTTP Localhost ESM Module Server Check FAILED!");
+                    console.error("❌ HTTP Static Asset & ESM Server Smoke Check FAILED!");
                     resolve(false);
                 }
             } catch (err) {

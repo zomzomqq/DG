@@ -19,10 +19,8 @@ export class GatlingTower extends Tower {
     }
 
     update(dt, enemyList, projectileList, particleSystem, soundManager) {
-        // [P3 4차 수정] 부모 update를 먼저 수행하여 이번 프레임의 this.target을 먼저 갱신
         super.update(dt, enemyList, projectileList, particleSystem, soundManager);
 
-        // Minigun 분기일 때만 이번 프레임의 타겟 기준으로 targetStack 예열 스택 계산
         if (this.branch === 'minigun') {
             if (this.target) {
                 if (this.lastTargetId === this.target.id) {
@@ -45,6 +43,12 @@ export class GatlingTower extends Tower {
 
         const isRailgun = this.branch === 'railgun';
         const isMinigun = this.branch === 'minigun';
+
+        // [P3 5차 수정] fire() 직전에도 이번 사격 타겟이 변경되었는지 2중 방어 검사
+        if (isMinigun && this.target && this.lastTargetId !== this.target.id) {
+            this.targetStack = 0;
+            this.lastTargetId = this.target.id;
+        }
 
         const stackSpeedBonus = isMinigun ? (1 + (this.targetStack / 10) * 0.8) : 1.0;
         const currentSpeed = (this.isOverclocked ? this.attackSpeed * 1.6 : this.attackSpeed) * stackSpeedBonus;

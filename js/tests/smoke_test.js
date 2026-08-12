@@ -129,35 +129,44 @@ export function runSmokeTests() {
         results.push({ name: "[P2] Engineer Shield Buff Absorption", status: "ERROR", detail: e.message });
     }
 
-    // Test 7: [P2 4차 보강] E2E Wave 1 & Wave 2 Complete Playthrough (currentWaveNum === 3 검증)
+    // Test 7: [P2 5차 강화] E2E Playthrough with Strict Setup Assertions & Production Economy Upgrades
     try {
         const game = new Game('game-canvas');
         
-        // Build defense towers
-        game.tryBuildMound(5, 5);
-        game.tryBuildTower(6, 3, 'gatling');
-        game.tryBuildTower(6, 4, 'cannon');
-        game.tryBuildTower(11, 8, 'frost');
-        game.tryBuildTower(17, 3, 'generator');
+        // 1. Build initial towers within Initial Gold (500G)
+        // Mound (150G) + Gatling (100G) + Cannon (175G) = 425G (Remaining: 75G)
+        const bMound = game.tryBuildMound(5, 5);
+        const bGatling = game.tryBuildTower(6, 3, 'gatling');
+        const bCannon = game.tryBuildTower(6, 4, 'cannon');
 
-        // Upgrade Gatling & Cannon for Wave 2
-        game.towers[0].upgradeNormal(); // Gatling Lv2
-        game.towers[1].upgradeNormal(); // Cannon Lv2
+        if (!bMound || !bGatling || !bCannon) {
+            throw new Error("Initial setup building failed!");
+        }
 
-        // Start Wave 1
+        // 2. Start Wave 1
         game.startNextWave();
 
         let wave1Cleared = false;
         let wave2Cleared = false;
 
-        // Run Game loop through Wave 1 and Wave 2 (up to 1500 ticks)
-        for (let tick = 0; tick < 1500; tick++) {
+        // Run Game loop through Wave 1 & Wave 2 with production economy upgrades
+        for (let tick = 0; tick < 1600; tick++) {
             game.update(0.1);
+
+            // As gold accumulates via wave clears, use production upgrade path (upgradeSelectedNormal)
+            if (game.gold >= 80 && game.towers[0] && game.towers[0].level === 1) {
+                game.selectTower(game.towers[0]);
+                game.upgradeSelectedNormal(); // Gatling Lv2 Upgrade via Production Path
+            }
+
+            if (game.gold >= 120 && game.towers[1] && game.towers[1].level === 1) {
+                game.selectTower(game.towers[1]);
+                game.upgradeSelectedNormal(); // Cannon Lv2 Upgrade via Production Path
+            }
 
             if (game.currentWaveNum === 2 && !wave1Cleared) {
                 wave1Cleared = true;
-                // Automatically start Wave 2 when Wave 1 clears
-                game.startNextWave();
+                game.startNextWave(); // Start Wave 2
             }
 
             if (game.currentWaveNum === 3) {
@@ -168,19 +177,19 @@ export function runSmokeTests() {
 
         if (wave1Cleared && wave2Cleared && !game.isGameOver && Number.isFinite(game.gold)) {
             results.push({ 
-                name: "[P2/E2E] Full Playthrough (Wave 1 & Wave 2 Clear -> Wave 3 Transition)", 
+                name: "[P2/E2E] Strict Economy Playthrough (Wave 1 & 2 Clear -> Wave 3 Transition)", 
                 status: "PASS", 
-                detail: `Wave 1 Cleared: true, Wave 2 Cleared: true -> Wave 3 Active! Gold: ${Math.floor(game.gold)}G, Base HP: ${game.baseTower.hp}` 
+                detail: `Wave 1 & 2 Cleared via Production Upgrades! Active Wave: 3, Gold: ${Math.floor(game.gold)}G, Base HP: ${game.baseTower.hp}` 
             });
         } else {
             results.push({ 
-                name: "[P2/E2E] Full Playthrough (Wave 1 & Wave 2 Clear -> Wave 3 Transition)", 
+                name: "[P2/E2E] Strict Economy Playthrough (Wave 1 & 2 Clear -> Wave 3 Transition)", 
                 status: "FAIL", 
                 detail: `Wave1Cleared: ${wave1Cleared}, Wave2Cleared: ${wave2Cleared}, WaveNum: ${game.currentWaveNum}` 
             });
         }
     } catch (e) {
-        results.push({ name: "[P2/E2E] Full Playthrough", status: "ERROR", detail: e.stack || e.message });
+        results.push({ name: "[P2/E2E] Strict Economy Playthrough", status: "ERROR", detail: e.stack || e.message });
     }
 
     // Output Test Summary
